@@ -1,7 +1,7 @@
 import StatCard from '@/components/cards/StatCard'
 import MetricsChart from '@/components/charts/MetricsChart'
 import DateRangeFilter from '@/components/filters/DateRangeFilter'
-import { DollarSign, MousePointerClick, Globe, PhoneCall } from 'lucide-react'
+import { DollarSign, MousePointerClick, Globe, PhoneCall, TrendingUp, Activity, CreditCard, Megaphone } from 'lucide-react'
 import { createClient } from '@/utils/supabase/server'
 
 export default async function DashboardPage(props: { searchParams?: Promise<{ from?: string, to?: string }> }) {
@@ -38,6 +38,7 @@ export default async function DashboardPage(props: { searchParams?: Promise<{ fr
   const ppcClicks = metrics.reduce((sum, row) => sum + (Number(row.google_ppc_clicks) || 0), 0)
   const organicVisits = metrics.reduce((sum, row) => sum + (Number(row.organic_visits) || 0), 0)
   const incomingCalls = metrics.reduce((sum, row) => sum + (Number(row.incoming_calls) || 0), 0)
+  const adSpendTotal = metrics.reduce((sum, row) => sum + (Number(row.ad_spend) || 0), 0)
 
   // 3. Format Date Series for MetricsChart (All Metrics mapped onto single timescale)
   const chartDataMap: Record<string, any> = {}
@@ -47,6 +48,7 @@ export default async function DashboardPage(props: { searchParams?: Promise<{ fr
        chartDataMap[dateStr] = {
          name: dateStr,
          grossSales: 0,
+         adSpend: 0,
          ppcClicks: 0,
          organicVisits: 0,
          incomingCalls: 0
@@ -65,6 +67,7 @@ export default async function DashboardPage(props: { searchParams?: Promise<{ fr
     if (!row.date) return
     const dateStr = new Date(row.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })
     initDate(dateStr)
+    chartDataMap[dateStr].adSpend += Number(row.ad_spend) || 0
     chartDataMap[dateStr].ppcClicks += Number(row.google_ppc_clicks) || 0
     chartDataMap[dateStr].organicVisits += Number(row.organic_visits) || 0
     chartDataMap[dateStr].incomingCalls += Number(row.incoming_calls) || 0
@@ -77,8 +80,8 @@ export default async function DashboardPage(props: { searchParams?: Promise<{ fr
 
   if (chartDataArray.length === 0) {
      chartDataArray = [
-        { name: 'No Data', grossSales: 0, ppcClicks: 0, organicVisits: 0, incomingCalls: 0 },
-        { name: 'Upload Data', grossSales: 0, ppcClicks: 0, organicVisits: 0, incomingCalls: 0 }
+        { name: 'No Data', grossSales: 0, adSpend: 0, ppcClicks: 0, organicVisits: 0, incomingCalls: 0 },
+        { name: 'Upload Data', grossSales: 0, adSpend: 0, ppcClicks: 0, organicVisits: 0, incomingCalls: 0 }
      ]
   }
 
@@ -126,31 +129,64 @@ export default async function DashboardPage(props: { searchParams?: Promise<{ fr
           </div>
        </div>
 
-       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-         <StatCard 
-           title="Gross Sales" 
-           value={formatCurrency(grossSales)} 
-           trendAmount="-- " 
-           icon={<DollarSign size={20} />} 
-         />
-         <StatCard 
-           title="PPC Clicks" 
-           value={formatNumber(ppcClicks)} 
-           trendAmount="-- " 
-           icon={<MousePointerClick size={20} />} 
-         />
-         <StatCard 
-           title="Organic Visits" 
-           value={formatNumber(organicVisits)} 
-           trendAmount="-- " 
-           icon={<Globe size={20} />} 
-         />
-         <StatCard 
-           title="Direct Calls" 
-           value={formatNumber(incomingCalls)} 
-           trendAmount="-- " 
-           icon={<PhoneCall size={20} />} 
-         />
+       <div>
+         <h3 className="text-xl font-display font-medium text-on-surface mb-4">Financial Overview</h3>
+         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+           <StatCard 
+             title="Gross Sales" 
+             value={formatCurrency(grossSales)} 
+             trendAmount="-- " 
+             icon={<DollarSign size={20} />} 
+           />
+           <StatCard 
+             title="Cost Of Goods" 
+             value="--" 
+             trendAmount="-- " 
+             icon={<Activity size={20} />} 
+           />
+           <StatCard 
+             title="Net Sales" 
+             value="--" 
+             trendAmount="-- " 
+             icon={<TrendingUp size={20} />} 
+           />
+           <StatCard 
+             title="Commission Paid" 
+             value="--" 
+             trendAmount="-- " 
+             icon={<CreditCard size={20} />} 
+           />
+         </div>
+       </div>
+
+       <div>
+         <h3 className="text-xl font-display font-medium text-on-surface mb-4 mt-8">Marketing Performance</h3>
+         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+           <StatCard 
+             title="Ad Spend" 
+             value={formatCurrency(adSpendTotal)} 
+             trendAmount="-- " 
+             icon={<Megaphone size={20} />} 
+           />
+           <StatCard 
+             title="PPC Clicks" 
+             value={formatNumber(ppcClicks)} 
+             trendAmount="-- " 
+             icon={<MousePointerClick size={20} />} 
+           />
+           <StatCard 
+             title="Organic Visits" 
+             value={formatNumber(organicVisits)} 
+             trendAmount="-- " 
+             icon={<Globe size={20} />} 
+           />
+           <StatCard 
+             title="Direct Calls" 
+             value={formatNumber(incomingCalls)} 
+             trendAmount="-- " 
+             icon={<PhoneCall size={20} />} 
+           />
+         </div>
        </div>
     </div>
   )

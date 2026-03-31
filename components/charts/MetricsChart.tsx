@@ -7,6 +7,7 @@ interface MetricsChartProps {
   data: {
     name: string
     grossSales: number
+    adSpend: number
     ppcClicks: number
     organicVisits: number
     incomingCalls: number
@@ -15,6 +16,7 @@ interface MetricsChartProps {
 
 const METRICS_CONFIG = [
   { key: 'grossSales', label: 'Gross Sales', color: '#89acff', yAxisId: 'left' },
+  { key: 'adSpend', label: 'Ad Spend', color: '#ffcc5c', yAxisId: 'right' },
   { key: 'ppcClicks', label: 'PPC Clicks', color: '#f28b82', yAxisId: 'right' },
   { key: 'organicVisits', label: 'Organic Visits', color: '#a7ff83', yAxisId: 'right' },
   { key: 'incomingCalls', label: 'Direct Calls', color: '#e489ff', yAxisId: 'right' },
@@ -27,10 +29,11 @@ const CustomTooltip = ({ active, payload, label }: any) => {
         <p className="text-[#a4a8d5] border-b border-[#2b306b] pb-2 mb-3 text-xs font-bold uppercase tracking-wider">{label}</p>
         <div className="space-y-2">
           {payload.map((entry: any) => {
-            const isCurrency = entry.dataKey === 'grossSales'
+            const isCurrency = entry.dataKey === 'grossSales' || entry.dataKey === 'adSpend'
             const formattedValue = isCurrency 
               ? new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(entry.value)
               : new Intl.NumberFormat('en-US').format(entry.value)
+
             
             const config = METRICS_CONFIG.find(c => c.key === entry.dataKey)
 
@@ -54,6 +57,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 export default function MetricsChart({ data }: MetricsChartProps) {
   const [visibleMetrics, setVisibleMetrics] = useState<Record<string, boolean>>({
     grossSales: true,
+    adSpend: false,
     ppcClicks: false,
     organicVisits: false,
     incomingCalls: false
@@ -67,7 +71,7 @@ export default function MetricsChart({ data }: MetricsChartProps) {
   }
 
   // Ensure Right Y Axis only renders scaling if at least one right-axis metric is visible
-  const showRightAxis = visibleMetrics.ppcClicks || visibleMetrics.organicVisits || visibleMetrics.incomingCalls
+  const showRightAxis = visibleMetrics.adSpend || visibleMetrics.ppcClicks || visibleMetrics.organicVisits || visibleMetrics.incomingCalls
 
   return (
     <div className="bg-surface-container rounded-xl p-8 relative overflow-hidden group hover:bg-surface-container-high transition-colors col-span-1 lg:col-span-2">
