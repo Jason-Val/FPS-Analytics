@@ -78,17 +78,26 @@ export default function DataUploadModal({ isOpen, onClose }: DataUploadModalProp
      setStatus('uploading')
      
      // Transform data based on mapping
-     const payload = csvData.map(row => {
-       const newRow: any = {}
-       Object.entries(mapping).forEach(([dbCol, csvHeader]) => {
-          let val = row[csvHeader]
-          // Basic type casting
-          if (val && !isNaN(Number(val)) && dbCol !== 'date' && dbCol !== 'sales_rep') {
-            val = Number(val)
-          }
-          newRow[dbCol] = val
-       })
-       return newRow
+     const payload = csvData
+       .filter(row => Object.values(row).some(v => v !== '' && v !== null && v !== undefined)) // Filter trailing completely empty rows
+       .map(row => {
+         const newRow: any = {}
+         Object.entries(mapping).forEach(([dbCol, csvHeader]) => {
+            let val = row[csvHeader]
+            
+            // Critical Fix: Nullify any empty strings to prevent postgres strict numeric typing rejection
+            if (val === undefined || val === null || String(val).trim() === '') {
+               newRow[dbCol] = null
+               return
+            }
+            
+            // Basic type casting for numerical values
+            if (!isNaN(Number(val)) && dbCol !== 'date' && dbCol !== 'customer' && dbCol !== 'sales_rep' && dbCol !== 'channel') {
+              val = Number(val)
+            }
+            newRow[dbCol] = val
+         })
+         return newRow
      })
 
      const { error } = await supabase.from(targetTable).upsert(payload)
