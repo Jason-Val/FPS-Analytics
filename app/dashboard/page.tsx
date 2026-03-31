@@ -35,6 +35,9 @@ export default async function DashboardPage(props: { searchParams?: Promise<{ fr
 
   // 2. Aggregate Data
   const grossSales = sales.reduce((sum, row) => sum + (Number(row.amount) || 0), 0)
+  const costOfGoods = sales.reduce((sum, row) => sum + (Number(row.cost_of_goods) || 0), 0)
+  const netSales = sales.reduce((sum, row) => sum + (Number(row.net_sales) || 0), 0)
+  const commissionPaid = sales.reduce((sum, row) => sum + (Number(row.commission_paid) || 0), 0)
   const ppcClicks = metrics.reduce((sum, row) => sum + (Number(row.google_ppc_clicks) || 0), 0)
   const organicVisits = metrics.reduce((sum, row) => sum + (Number(row.organic_visits) || 0), 0)
   const incomingCalls = metrics.reduce((sum, row) => sum + (Number(row.incoming_calls) || 0), 0)
@@ -140,19 +143,19 @@ export default async function DashboardPage(props: { searchParams?: Promise<{ fr
            />
            <StatCard 
              title="Cost Of Goods" 
-             value="--" 
+             value={formatCurrency(costOfGoods)} 
              trendAmount="-- " 
              icon={<Activity size={20} />} 
            />
            <StatCard 
              title="Net Sales" 
-             value="--" 
+             value={formatCurrency(netSales)} 
              trendAmount="-- " 
              icon={<TrendingUp size={20} />} 
            />
            <StatCard 
              title="Commission Paid" 
-             value="--" 
+             value={formatCurrency(commissionPaid)} 
              trendAmount="-- " 
              icon={<CreditCard size={20} />} 
            />

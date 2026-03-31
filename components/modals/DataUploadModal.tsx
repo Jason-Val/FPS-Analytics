@@ -14,7 +14,7 @@ type TableChoice = 'marketing_metrics' | 'sales'
 
 const TABLE_SCHEMAS = {
   marketing_metrics: ['date', 'google_ppc_clicks', 'organic_visits', 'incoming_calls', 'ad_spend'],
-  sales: ['date', 'amount', 'sales_rep', 'customer', 'channel']
+  sales: ['date', 'amount', 'cost_of_goods', 'net_sales', 'commission_paid', 'sales_rep', 'customer', 'channel']
 }
 
 export default function DataUploadModal({ isOpen, onClose }: DataUploadModalProps) {
