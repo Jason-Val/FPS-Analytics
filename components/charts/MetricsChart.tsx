@@ -17,11 +17,6 @@ export default function MetricsChart({ data }: MetricsChartProps) {
            <h2 className="text-2xl font-display font-medium text-on-surface">Conversion Convergence</h2>
            <p className="text-on-surface-variant text-sm mt-2 max-w-none md:max-w-sm">Aggregated data across all active channels</p>
          </div>
-         <div className="hidden sm:flex bg-surface-container-low rounded-lg p-1 ghost-border">
-            <button className="px-4 py-1.5 text-xs font-bold text-on-surface-variant hover:text-on-surface rounded-md transition-colors">Today</button>
-            <button className="px-4 py-1.5 text-xs font-bold text-primary bg-surface-container rounded-md transition-colors shadow-sm">Last 7 Days</button>
-            <button className="px-4 py-1.5 text-xs font-bold text-on-surface-variant hover:text-on-surface rounded-md transition-colors">Last 30 Days</button>
-         </div>
        </div>
 
        <div className="h-64 mt-12 cursor-crosshair">
