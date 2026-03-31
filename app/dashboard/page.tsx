@@ -39,30 +39,46 @@ export default async function DashboardPage(props: { searchParams?: Promise<{ fr
   const organicVisits = metrics.reduce((sum, row) => sum + (Number(row.organic_visits) || 0), 0)
   const incomingCalls = metrics.reduce((sum, row) => sum + (Number(row.incoming_calls) || 0), 0)
 
-  // 3. Format Date Series for MetricsChart (Gross Sales Trend over Time)
-  const chartDataMap: Record<string, number> = {}
+  // 3. Format Date Series for MetricsChart (All Metrics mapped onto single timescale)
+  const chartDataMap: Record<string, any> = {}
   
+  const initDate = (dateStr: string) => {
+    if (!chartDataMap[dateStr]) {
+       chartDataMap[dateStr] = {
+         name: dateStr,
+         grossSales: 0,
+         ppcClicks: 0,
+         organicVisits: 0,
+         incomingCalls: 0
+       }
+    }
+  }
+
   sales.forEach(row => {
     if (!row.date) return
     const dateStr = new Date(row.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })
-    if (!chartDataMap[dateStr]) {
-       chartDataMap[dateStr] = 0
-    }
-    chartDataMap[dateStr] += Number(row.amount) || 0
+    initDate(dateStr)
+    chartDataMap[dateStr].grossSales += Number(row.amount) || 0
+  })
+
+  metrics.forEach(row => {
+    if (!row.date) return
+    const dateStr = new Date(row.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })
+    initDate(dateStr)
+    chartDataMap[dateStr].ppcClicks += Number(row.google_ppc_clicks) || 0
+    chartDataMap[dateStr].organicVisits += Number(row.organic_visits) || 0
+    chartDataMap[dateStr].incomingCalls += Number(row.incoming_calls) || 0
   })
 
   // Sort chronological
   const sortedDates = Object.keys(chartDataMap).sort((a, b) => new Date(`${a} 2024`).getTime() - new Date(`${b} 2024`).getTime())
   
-  let chartDataArray = sortedDates.map(dateKey => ({
-     name: dateKey,
-     value: chartDataMap[dateKey]
-  }))
+  let chartDataArray = sortedDates.map(dateKey => chartDataMap[dateKey])
 
   if (chartDataArray.length === 0) {
      chartDataArray = [
-        { name: 'No Data', value: 0 },
-        { name: 'Upload Data', value: 0 }
+        { name: 'No Data', grossSales: 0, ppcClicks: 0, organicVisits: 0, incomingCalls: 0 },
+        { name: 'Upload Data', grossSales: 0, ppcClicks: 0, organicVisits: 0, incomingCalls: 0 }
      ]
   }
 
