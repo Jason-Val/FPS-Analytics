@@ -1,0 +1,41 @@
+
+> fps-analytics@0.1.0 build
+> next build
+
+▲ Next.js 16.2.1 (Turbopack)
+- Environments: .env.local
+
+⚠ The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+  Creating an optimized production build ...
+Error: `@utility primary-btn:hover` defines an invalid utility name. Utilities should be alphanumeric and start with a lowercase letter.
+    [2m[at C:\Users\jason\OneDrive\Documents\FPS-Analytics\node_modules\tailwindcss\dist\lib.js:32:3856][0m
+    [2m[at _r (C:\Users\jason\OneDrive\Documents\FPS-Analytics\node_modules\tailwindcss\dist\lib.js:3:1733)][0m
+    [2m[at I (C:\Users\jason\OneDrive\Documents\FPS-Analytics\node_modules\tailwindcss\dist\lib.js:3:1377)][0m
+    [2m[at mn (C:\Users\jason\OneDrive\Documents\FPS-Analytics\node_modules\tailwindcss\dist\lib.js:32:2712)][0m
+    [2m[at async gn (C:\Users\jason\OneDrive\Documents\FPS-Analytics\node_modules\tailwindcss\dist\lib.js:38:631)][0m
+    [2m[at async Xr (C:\Users\jason\OneDrive\Documents\FPS-Analytics\node_modules\@tailwindcss\node\dist\index.js:10:3416)][0m
+    [2m[at async N (C:\Users\jason\OneDrive\Documents\FPS-Analytics\node_modules\@tailwindcss\postcss\dist\index.js:10:3979)][0m
+    [2m[at async Object.Once (C:\Users\jason\OneDrive\Documents\FPS-Analytics\node_modules\@tailwindcss\postcss\dist\index.js:10:4251)][0m
+    [2mat async LazyResult.runAsync (node_modules/postcss/lib/lazy-result.js:293:11) [C:\Users\jason\OneDrive\Documents\FPS-Analytics\.next\build\chunks\node_modules_13sb.px._.js:6214:21][0m
+    [2mat async transform (turbopack:///[turbopack-node]/transforms/postcss.ts:70:34) [C:\Users\jason\OneDrive\Documents\FPS-Analytics\.next\build\chunks\[root-of-the-server]__0d-m0h0._.js:146:36][0m
+
+> Build error occurred
+Error: Turbopack build failed with 1 errors:
+./app/globals.css
+Error evaluating Node.js code
+CssSyntaxError: tailwindcss: C:\Users\jason\OneDrive\Documents\FPS-Analytics\app\globals.css:1:1: `@utility primary-btn:hover` defines an invalid utility name. Utilities should be alphanumeric and start with a lowercase letter.
+    at Input.error (node_modules/postcss/lib/input.js:135:16) [C:\Users\jason\OneDrive\Documents\FPS-Analytics\.next\build\chunks\node_modules_13sb.px._.js:4651:22]
+    at error (node_modules/postcss/lib/node.js:146:32) [C:\Users\jason\OneDrive\Documents\FPS-Analytics\.next\build\chunks\node_modules_13sb.px._.js:928:38]
+    [at Object.Once (C:\Users\jason\OneDrive\Documents\FPS-Analytics\node_modules\@tailwindcss\postcss\dist\index.js:10:6913)]
+    at async LazyResult.runAsync (node_modules/postcss/lib/lazy-result.js:293:11) [C:\Users\jason\OneDrive\Documents\FPS-Analytics\.next\build\chunks\node_modules_13sb.px._.js:6214:21]
+    at async transform (turbopack:///[turbopack-node]/transforms/postcss.ts:70:34) [C:\Users\jason\OneDrive\Documents\FPS-Analytics\.next\build\chunks\[root-of-the-server]__0d-m0h0._.js:146:36]
+    at async run (turbopack:///[turbopack-node]/child_process/evaluate.ts:89:23) [C:\Users\jason\OneDrive\Documents\FPS-Analytics\.next\build\chunks\[root-of-the-server]__0ubbtyl._.js:443:31]
+
+Import trace:
+  Client Component Browser:
+    ./app/globals.css [Client Component Browser]
+    ./app/layout.tsx [Server Component]
+
+
+    at async transform (turbopack:///[turbopack-node]/transforms/postcss.ts:70:34) [C:\Users\jason\OneDrive\Documents\FPS-Analytics\.next\build\chunks\[root-of-the-server]__0d-m0h0._.js:146:36])
+    at async run (turbopack:///[turbopack-node]/child_process/evaluate.ts:89:23) [C:\Users\jason\OneDrive\Documents\FPS-Analytics\.next\build\chunks\[root-of-the-server]__0ubbtyl._.js:443:31])

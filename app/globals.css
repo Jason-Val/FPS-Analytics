@@ -1,34 +1,63 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+@theme {
+  --color-background: #06092f;
+  --color-surface: #06092f;
+  --color-surface-container-low: #090e38;
+  --color-surface-container: #0f1442;
+  --color-surface-container-high: #141a4c;
+  --color-surface-container-highest: #1a2056;
+  --color-on-background: #e3e3ff;
+  --color-on-surface: #e3e3ff;
+  --color-on-surface-variant: #a4a8d5;
+  --color-primary: #89acff;
+  --color-primary-container: #739eff;
+  --color-secondary: #a289ff;
+  --color-secondary-container: #591adc;
+  --color-tertiary: #b5ffc2;
+  --color-error: #ff716c;
+  --color-outline-variant: #41456c;
+  
+  --font-sans: var(--font-inter), sans-serif;
+  --font-display: var(--font-manrope), sans-serif;
+  
+  --background-image-primary-gradient: linear-gradient(135deg, #89acff 0%, #739eff 100%);
+}
 
 @layer base {
   body {
-    background-color: theme('colors.background');
-    color: theme('colors.on-background');
-    font-family: theme('fontFamily.sans');
+    background-color: var(--color-background);
+    color: var(--color-on-background);
+    font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
 
   h1, h2, h3, h4, h5, h6 {
-    font-family: theme('fontFamily.display');
+    font-family: var(--font-display);
     letter-spacing: -0.02em;
   }
 }
 
-@layer utilities {
-  .glass-panel {
-    background-color: rgba(26, 32, 86, 0.8);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-  }
+@utility glass-panel {
+  background-color: rgba(26, 32, 86, 0.8);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
 
-  .primary-btn {
-    @apply rounded-full bg-primary-gradient px-6 py-3 font-bold text-[#06092f] transition-all hover:opacity-90;
-  }
+@utility ghost-border {
+  border: 1px solid rgba(65, 69, 108, 0.15);
+}
 
-  .ghost-border {
-    border: 1px solid rgba(65, 69, 108, 0.15);
+@utility primary-btn {
+  border-radius: 9999px;
+  background-image: var(--background-image-primary-gradient);
+  padding: 0.75rem 1.5rem;
+  font-weight: 700;
+  color: #06092f;
+  transition-property: all;
+  transition-duration: 150ms;
+  &:hover {
+    opacity: 0.9;
   }
 }

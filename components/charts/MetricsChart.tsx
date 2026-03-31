@@ -2,17 +2,14 @@
 
 import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer } from 'recharts'
 
-const data = [
-  { name: 'MON', value: 4000 },
-  { name: 'TUE', value: 3000 },
-  { name: 'WED', value: 2000 },
-  { name: 'THU', value: 2780 },
-  { name: 'FRI', value: 1890 },
-  { name: 'SAT', value: 2390 },
-  { name: 'SUN', value: 3490 },
-]
+interface MetricsChartProps {
+  data: {
+    name: string
+    value: number
+  }[]
+}
 
-export default function MetricsChart() {
+export default function MetricsChart({ data }: MetricsChartProps) {
   return (
     <div className="bg-surface-container rounded-xl p-8 relative overflow-hidden group hover:bg-surface-container-high transition-colors col-span-1 lg:col-span-2">
        <div className="relative z-10 flex justify-between items-start">

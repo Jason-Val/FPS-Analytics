@@ -186,7 +186,7 @@ export default function DataUploadModal({ isOpen, onClose }: DataUploadModalProp
                         <div className="w-1/3 text-sm text-on-surface font-medium capitalize bg-surface-container-low px-3 py-2 rounded">
                           {dbCol.replace('_', ' ')}
                         </div>
-                        <div className="text-on-surface-variant">→</</div>
+                        <div className="text-on-surface-variant">&rarr;</div>
                         <select
                           className="w-2/3 bg-surface-container-low text-on-surface rounded px-3 py-2 border border-outline-variant/20 text-sm"
                           value={mapping[dbCol] || ''}
