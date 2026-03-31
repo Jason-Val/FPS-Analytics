@@ -11,20 +11,27 @@ export default async function DashboardPage(props: { searchParams?: Promise<{ fr
 
   const supabase = await createClient()
 
-  // 1. Fetch live data
-  let salesQuery = supabase.from('sales').select('*')
-  let marketingQuery = supabase.from('marketing_metrics').select('*')
-
-  if (from && to) {
-     salesQuery = salesQuery.gte('date', from).lte('date', to)
-     marketingQuery = marketingQuery.gte('date', from).lte('date', to)
+  // 1. Fetch live data (with pagination to bypass Supabase's default 1,000 row limit)
+  async function fetchAll(table: string) {
+    let allData: any[] = []
+    let page = 0
+    const pageSize = 1000
+    while (true) {
+      let query = supabase.from(table).select('*').range(page * pageSize, (page + 1) * pageSize - 1)
+      if (from && to) query = query.gte('date', from).lte('date', to)
+      
+      const { data } = await query
+      if (!data || data.length === 0) break
+      
+      allData = allData.concat(data)
+      if (data.length < pageSize) break
+      page++
+    }
+    return allData
   }
 
-  const { data: salesData } = await salesQuery
-  const { data: marketingData } = await marketingQuery
-
-  const sales = salesData || []
-  const metrics = marketingData || []
+  const sales = await fetchAll('sales')
+  const metrics = await fetchAll('marketing_metrics')
 
   // 2. Aggregate Data
   const grossSales = sales.reduce((sum, row) => sum + (Number(row.amount) || 0), 0)
