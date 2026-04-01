@@ -24,7 +24,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${inter.variable} ${manrope.variable} antialiased`}>
+      <body suppressHydrationWarning className={`${inter.variable} ${manrope.variable} antialiased`}>
         {children}
       </body>
     </html>

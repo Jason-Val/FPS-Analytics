@@ -1,5 +1,6 @@
 import StatCard from '@/components/cards/StatCard'
 import MetricsChart from '@/components/charts/MetricsChart'
+import LiveIntelChat from '@/components/cards/LiveIntelChat'
 import DateRangeFilter from '@/components/filters/DateRangeFilter'
 import { DollarSign, MousePointerClick, Globe, PhoneCall, TrendingUp, Activity, CreditCard, Megaphone } from 'lucide-react'
 import { createClient } from '@/utils/supabase/server'
@@ -120,15 +121,11 @@ export default async function DashboardPage(props: { searchParams?: Promise<{ fr
               <h3 className="text-xl font-display font-medium text-on-surface mt-4 mb-3 leading-snug">
                 {sales.length > 0 ? `Tracking ${formatNumber(sales.length)} distinct sales transactions.` : 'No transactions exist in this period.'}
               </h3>
-              <p className="text-on-surface-variant text-sm leading-relaxed">
-                Your visualization is currently mirroring data directly from the unified Supabase metrics pipeline based on your exact chronological filters.
-              </p>
             </div>
             
-            <button className="text-left text-primary text-xs font-bold tracking-widest uppercase mt-8 hover:text-primary-container transition-colors flex items-center space-x-2">
-              <span>View Detailed Report</span>
-              <span>&rarr;</span>
-            </button>
+            <div className="mt-4 flex-1">
+               <LiveIntelChat />
+            </div>
           </div>
        </div>
 
