@@ -2,15 +2,16 @@
 
 import { ReactNode, useState } from 'react'
 import Link from 'next/link'
-import { LayoutDashboard, TrendingUp, Plus, Settings, LogOut } from 'lucide-react'
+import { LayoutDashboard, TrendingUp, Users, Plus, Settings, LogOut } from 'lucide-react'
 import DataUploadModal from '@/components/modals/DataUploadModal'
 import { createClient } from '@/utils/supabase/client'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const supabase = createClient()
   const router = useRouter()
+  const pathname = usePathname()
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
@@ -36,13 +37,39 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
               <span>Upload Data</span>
             </button>
 
-            <Link href="/dashboard" className="flex items-center space-x-3 text-on-surface bg-surface-container/50 px-4 py-3 rounded-lg border-l-2 border-primary">
-              <LayoutDashboard size={18} className="text-primary" />
+            <Link 
+              href="/dashboard" 
+              className={`flex items-center space-x-3 px-4 py-3 rounded-lg border-l-2 transition-all ${
+                pathname === '/dashboard' 
+                  ? 'text-on-surface bg-surface-container/50 border-primary shadow-sm' 
+                  : 'text-on-surface-variant hover:text-on-surface border-transparent'
+              }`}
+            >
+              <LayoutDashboard size={18} className={pathname === '/dashboard' ? 'text-primary' : ''} />
               <span className="font-medium text-sm">Dashboard</span>
             </Link>
 
-            <Link href="/dashboard/projections" className="flex items-center space-x-3 text-on-surface-variant hover:text-on-surface px-4 py-3 rounded-lg transition-colors">
-              <TrendingUp size={18} />
+            <Link 
+              href="/dashboard/reps" 
+              className={`flex items-center space-x-3 px-4 py-3 rounded-lg border-l-2 transition-all ${
+                pathname === '/dashboard/reps' 
+                  ? 'text-on-surface bg-surface-container/50 border-primary shadow-sm' 
+                  : 'text-on-surface-variant hover:text-on-surface border-transparent'
+              }`}
+            >
+              <Users size={18} className={pathname === '/dashboard/reps' ? 'text-primary' : ''} />
+              <span className="font-medium text-sm">Sales Reps</span>
+            </Link>
+
+            <Link 
+              href="/dashboard/projections" 
+              className={`flex items-center space-x-3 px-4 py-3 rounded-lg border-l-2 transition-all ${
+                pathname === '/dashboard/projections' 
+                  ? 'text-on-surface bg-surface-container/50 border-primary shadow-sm' 
+                  : 'text-on-surface-variant hover:text-on-surface border-transparent'
+              }`}
+            >
+              <TrendingUp size={18} className={pathname === '/dashboard/projections' ? 'text-primary' : ''} />
               <span className="font-medium text-sm">Projections</span>
             </Link>
           </nav>

@@ -1,12 +1,13 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { Calendar } from 'lucide-react'
 
 export default function DateRangeFilter() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const pathname = usePathname()
   
   const currentFrom = searchParams.get('from')
   const currentTo = searchParams.get('to')
@@ -47,20 +48,34 @@ export default function DateRangeFilter() {
     setIsCustomOpen(false)
     const ranges = calculatePresetRanges()
     
+    // Create new params to preserve others (like 'rep')
+    const params = new URLSearchParams(searchParams.toString())
+
     if (preset === 'all') {
-      router.push('/dashboard')
+      params.delete('from')
+      params.delete('to')
+      router.push(`${pathname}?${params.toString()}`)
     } else if (preset === 'today') {
-      router.push(`/dashboard?from=${ranges.today.from}&to=${ranges.today.to}`)
+      params.set('from', ranges.today.from)
+      params.set('to', ranges.today.to)
+      router.push(`${pathname}?${params.toString()}`)
     } else if (preset === '7days') {
-      router.push(`/dashboard?from=${ranges.last7.from}&to=${ranges.last7.to}`)
+      params.set('from', ranges.last7.from)
+      params.set('to', ranges.last7.to)
+      router.push(`${pathname}?${params.toString()}`)
     } else if (preset === '30days') {
-      router.push(`/dashboard?from=${ranges.last30.from}&to=${ranges.last30.to}`)
+      params.set('from', ranges.last30.from)
+      params.set('to', ranges.last30.to)
+      router.push(`${pathname}?${params.toString()}`)
     }
   }
 
   const applyCustomFilter = () => {
+    const params = new URLSearchParams(searchParams.toString())
     if (customFrom && customTo) {
-      router.push(`/dashboard?from=${customFrom}&to=${customTo}`)
+      params.set('from', customFrom)
+      params.set('to', customTo)
+      router.push(`${pathname}?${params.toString()}`)
     }
   }
 

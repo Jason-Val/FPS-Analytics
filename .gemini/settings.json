@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "google-ai": {
+      "command": "npx -y @modelcontextprotocol/server-gemini",
+      "args": [],
+      "env": {
+        "GEMINI_API_KEY": "AIzaSyDVCgyyBY1PNnqyqyYydH6HEfPlRRbzbOY"
+      }
+    }
+  }
+}
