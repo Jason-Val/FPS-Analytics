@@ -13,19 +13,31 @@ export default function SetupAuth() {
   useEffect(() => {
     const processAuth = async () => {
       try {
-        // The Supabase browser client will automatically parse the hash fragment 
-        // (if present) and establish the session, storing it in cookies.
-        
-        // Let's parse the hash ourselves just to see if there's an intended destination
         const hashParams = new URLSearchParams(window.location.hash.substring(1))
         const type = hashParams.get('type') || new URLSearchParams(window.location.search).get('type')
         const next = hashParams.get('next') || new URLSearchParams(window.location.search).get('next')
+        const accessToken = hashParams.get('access_token')
+        const refreshToken = hashParams.get('refresh_token')
         
         const destination = (type === 'recovery' || type === 'invite' || next === '/auth/update-password') 
           ? '/auth/update-password' 
           : (next ?? '/dashboard')
 
-        // Give the client a moment to establish the session from the URL hash
+        // If the URL has explicit tokens, try to establish the session with them directly.
+        if (accessToken && refreshToken) {
+          const { error: setSessionError } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken
+          })
+          if (setSessionError) {
+            console.error('Error explicitly setting session:', setSessionError)
+          }
+        }
+
+        // Wait a short moment to ensure the browser client logic and cookies have synced
+        // This gives the @supabase/ssr client time to set the actual document.cookie
+        await new Promise(resolve => setTimeout(resolve, 500))
+
         const { data: { session }, error: sessionError } = await supabase.auth.getSession()
 
         if (sessionError) throw sessionError
