@@ -24,10 +24,10 @@ export async function POST(request: Request) {
 
   const adminClient = await createAdminClient()
   
-  // Use official Supabase invitation system. 
-  // We explicitly add ?next=/auth/update-password to ensure the callback gets the correct destination
+  // Use simplified redirectTo to stay within the allow-list matching your whitelisted URL exactly.
+  // The callback route is now configured to automatically detect invites and direct users to /auth/update-password.
   const { error } = await adminClient.auth.admin.inviteUserByEmail(email, {
-    redirectTo: `${new URL(request.url).origin}/auth/callback?next=/auth/update-password`,
+    redirectTo: `${new URL(request.url).origin}/auth/callback`,
   })
 
   if (error) {
