@@ -58,6 +58,11 @@ export async function updateSession(request: NextRequest) {
       }
     }
 
+    // Allow user to stay on password update page if they are logged in but need to set a passcode
+    if (request.nextUrl.pathname.startsWith("/auth/update-password")) {
+      return supabaseResponse;
+    }
+
     // Redirect logged-in users away from the login page
     if (request.nextUrl.pathname === "/") {
        const url = request.nextUrl.clone();

@@ -24,7 +24,8 @@ export async function POST(request: Request) {
 
   const adminClient = await createAdminClient()
   
-  // Use official Supabase invitation system
+  // Use official Supabase invitation system. 
+  // We explicitly add ?next=/auth/update-password to ensure the callback gets the correct destination
   const { error } = await adminClient.auth.admin.inviteUserByEmail(email, {
     redirectTo: `${new URL(request.url).origin}/auth/callback?next=/auth/update-password`,
   })

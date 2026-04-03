@@ -4,22 +4,27 @@ import { NextResponse } from 'next/server'
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url)
   const code = searchParams.get('code')
-  // if "next" is in search params, use it as the redirection URL
-  const next = searchParams.get('next') ?? '/dashboard'
+  const next = searchParams.get('next')
+  const type = searchParams.get('type') // 'invite', 'recovery', etc.
+
+  // If we arrived from an invite or recovery link, force the next destination to be the password update page
+  const destination = (type === 'recovery' || type === 'invite' || next === '/auth/update-password') 
+    ? '/auth/update-password' 
+    : (next ?? '/dashboard')
 
   if (code) {
     const supabase = await createClient()
     const { error } = await supabase.auth.exchangeCodeForSession(code)
     if (!error) {
-      const forwardedHost = request.headers.get('x-forwarded-host') // localhost:3000
+      const forwardedHost = request.headers.get('x-forwarded-host') 
       const isLocalEnv = process.env.NODE_ENV === 'development'
+      
       if (isLocalEnv) {
-        // we can be sure that origin is http://localhost:3000
-        return NextResponse.redirect(`${origin}${next}`)
+        return NextResponse.redirect(`${origin}${destination}`)
       } else if (forwardedHost) {
-        return NextResponse.redirect(`https://${forwardedHost}${next}`)
+        return NextResponse.redirect(`https://${forwardedHost}${destination}`)
       } else {
-        return NextResponse.redirect(`${origin}${next}`)
+        return NextResponse.redirect(`${origin}${destination}`)
       }
     }
   }
