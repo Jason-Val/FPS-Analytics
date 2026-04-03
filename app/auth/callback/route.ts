@@ -29,6 +29,7 @@ export async function GET(request: Request) {
     }
   }
 
-  // return the user to an error page with instructions
-  return NextResponse.redirect(`${origin}/auth/auth-code-error`)
+  // If we couldn't find/exchange a code, it might be an implicit grant link (hash fragment).
+  // Instead of an error page, redirect to a client processing page that can extract the session from the hash.
+  return NextResponse.redirect(`${origin}/auth/setup`)
 }
