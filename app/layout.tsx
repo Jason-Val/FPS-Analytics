@@ -13,8 +13,11 @@ const manrope = Manrope({
 });
 
 export const metadata: Metadata = {
-  title: "Luminous Analyst | FPS Analytics",
-  description: "Real-time advertising and sales metrics dashboard.",
+  title: "FPS Analytics",
+  description: "Modern advertising and sales metrics for Forklift Parts Supply.",
+  icons: {
+    icon: "/icon.png",
+  },
 };
 
 export default function RootLayout({
