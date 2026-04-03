@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -24,23 +25,9 @@ export default function LoginPage() {
     })
     
     if (signInError) {
-      // If the user doesn't exist, we can automatically sign them up for this demo.
-      if (signInError.message.includes("Invalid login credentials") || signInError.message.includes("Email not confirmed")) {
-         const { error: signUpError } = await supabase.auth.signUp({
-            email,
-            password
-         })
-         
-         if (signUpError) {
-           setError(signUpError.message)
-           setIsLoading(false)
-           return
-         }
-      } else {
-        setError(signInError.message)
-        setIsLoading(false)
-        return
-      }
+      setError("Identity verification failed. Please check your passcode or contact admin.")
+      setIsLoading(false)
+      return
     } 
     
     router.push('/dashboard')
@@ -68,7 +55,15 @@ export default function LoginPage() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-on-surface-variant mb-2">Secure Passcode</label>
+            <div className="flex justify-between items-center mb-2">
+              <label className="block text-sm font-medium text-on-surface-variant">Secure Passcode</label>
+              <Link 
+                href="/auth/forgot-password" 
+                className="text-xs text-primary hover:underline transition-all"
+              >
+                Forgot Passcode?
+              </Link>
+            </div>
             <input 
               type="password" 
               value={password}
@@ -79,7 +74,7 @@ export default function LoginPage() {
             />
           </div>
           
-          {error && <div className="text-error text-sm p-3 bg-error/10 rounded-md border border-error/20">{error}</div>}
+          {error && <div className="text-error text-sm p-3 bg-error/10 rounded-md border border-error/20 font-medium">{error}</div>}
           
           <button 
             type="submit" 

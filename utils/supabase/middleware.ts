@@ -31,9 +31,9 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  // Protect dashboard routes
   if (
     !user &&
-    !request.nextUrl.pathname.startsWith("/") && // If page is root (login), it's allowed
     request.nextUrl.pathname.startsWith("/dashboard")
   ) {
     const url = request.nextUrl.clone();
@@ -41,11 +41,29 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // If user is logged in and trying to hit root, redirect to dashboard
-  if (user && request.nextUrl.pathname === "/") {
-     const url = request.nextUrl.clone();
-     url.pathname = "/dashboard";
-     return NextResponse.redirect(url);
+  // Handle Role-Based Access Control (RBAC) 
+  if (user) {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single();
+
+    // Protect admin-only routes
+    if (request.nextUrl.pathname.startsWith("/dashboard/admin")) {
+      if (profile?.role !== 'admin') {
+        const url = request.nextUrl.clone();
+        url.pathname = "/dashboard";
+        return NextResponse.redirect(url);
+      }
+    }
+
+    // Redirect logged-in users away from the login page
+    if (request.nextUrl.pathname === "/") {
+       const url = request.nextUrl.clone();
+       url.pathname = "/dashboard";
+       return NextResponse.redirect(url);
+    }
   }
 
   return supabaseResponse;

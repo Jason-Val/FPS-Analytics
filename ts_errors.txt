@@ -1,8 +1,0 @@
-components/modals/DataUploadModal.tsx(185,22): error TS2657: JSX expressions must have one parent element.
-components/modals/DataUploadModal.tsx(189,69): error TS1003: Identifier expected.
-components/modals/DataUploadModal.tsx(200,22): error TS1005: ')' expected.
-components/modals/DataUploadModal.tsx(201,22): error TS1381: Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
-components/modals/DataUploadModal.tsx(204,14): error TS1005: ')' expected.
-components/modals/DataUploadModal.tsx(205,13): error TS1381: Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
-components/modals/DataUploadModal.tsx(246,5): error TS1005: ')' expected.
-components/modals/DataUploadModal.tsx(247,3): error TS1109: Expression expected.

@@ -1,17 +1,33 @@
 'use client'
 
-import { ReactNode, useState } from 'react'
+import { ReactNode, useState, useEffect } from 'react'
 import Link from 'next/link'
-import { LayoutDashboard, TrendingUp, Users, Plus, Settings, LogOut } from 'lucide-react'
+import { LayoutDashboard, TrendingUp, Users, Plus, Settings, LogOut, Shield } from 'lucide-react'
 import DataUploadModal from '@/components/modals/DataUploadModal'
 import { createClient } from '@/utils/supabase/client'
 import { useRouter, usePathname } from 'next/navigation'
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [userRole, setUserRole] = useState<string | null>(null)
   const supabase = createClient()
   const router = useRouter()
   const pathname = usePathname()
+
+  useEffect(() => {
+    async function fetchUserRole() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', user.id)
+          .single()
+        setUserRole(profile?.role || 'user')
+      }
+    }
+    fetchUserRole()
+  }, [supabase])
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
@@ -65,13 +81,27 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
               href="/dashboard/projections" 
               className={`flex items-center space-x-3 px-4 py-3 rounded-lg border-l-2 transition-all ${
                 pathname === '/dashboard/projections' 
-                  ? 'text-on-surface bg-surface-container/50 border-primary shadow-sm' 
-                  : 'text-on-surface-variant hover:text-on-surface border-transparent'
+                   ? 'text-on-surface bg-surface-container/50 border-primary shadow-sm' 
+                   : 'text-on-surface-variant hover:text-on-surface border-transparent'
               }`}
             >
               <TrendingUp size={18} className={pathname === '/dashboard/projections' ? 'text-primary' : ''} />
               <span className="font-medium text-sm">Projections</span>
             </Link>
+
+            {userRole === 'admin' && (
+              <Link 
+                href="/dashboard/admin" 
+                className={`flex items-center space-x-3 px-4 py-3 rounded-lg border-l-2 transition-all ${
+                  pathname === '/dashboard/admin' 
+                    ? 'text-on-surface bg-surface-container/50 border-primary shadow-sm' 
+                    : 'text-on-surface-variant hover:text-on-surface border-transparent'
+                }`}
+              >
+                <Shield size={18} className={pathname === '/dashboard/admin' ? 'text-primary' : ''} />
+                <span className="font-medium text-sm">Admin</span>
+              </Link>
+            )}
           </nav>
         </div>
 
