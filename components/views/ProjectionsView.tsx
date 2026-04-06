@@ -1,10 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import StatCard from '@/components/cards/StatCard'
 import MetricsChart from '@/components/charts/MetricsChart'
 import AdSpendSimulator from '@/components/cards/AdSpendSimulator'
 import { DollarSign, MousePointerClick, Globe, PhoneCall, TrendingUp, Activity, CreditCard, Megaphone } from 'lucide-react'
+import { createClient } from '@/utils/supabase/client'
 
 interface HistoricalData {
   historicalGross: number
@@ -21,6 +22,17 @@ interface ProjectionsViewProps {
   historicalData: HistoricalData
 }
 
+interface ProjectionConstants {
+  cost_per_ppc_click: number
+  cost_per_call: number
+  cost_per_sale: number
+  average_sale_value: number
+  paid_ad_sales_pct: number
+  cost_of_goods_pct: number
+  commission_pct: number
+  organic_visits_pct: number
+}
+
 function countWeekdays(startDate: Date, days: number): number {
   let count = 0
   let currentDate = new Date(startDate)
@@ -34,27 +46,53 @@ function countWeekdays(startDate: Date, days: number): number {
 
 export default function ProjectionsView({ historicalData }: ProjectionsViewProps) {
   const [dailySpend, setDailySpend] = useState(237.50)
+  const [constants, setConstants] = useState<ProjectionConstants | null>(null)
+  
+  useEffect(() => {
+    async function fetchConstants() {
+      const supabase = createClient()
+      const { data } = await supabase.from('projection_constants').select('*').eq('id', 1).single()
+      if (data) {
+        setConstants(data)
+      } else {
+        // Fallback default constants
+        setConstants({
+          cost_per_ppc_click: 1.37,
+          cost_per_call: 17.42,
+          cost_per_sale: 76.84,
+          average_sale_value: 473.60,
+          paid_ad_sales_pct: 12.5,
+          cost_of_goods_pct: 30.0,
+          commission_pct: 10.0,
+          organic_visits_pct: 66.0,
+        })
+      }
+    }
+    fetchConstants()
+  }, [])
+
+  if (!constants) {
+    return <div className="text-center p-12 text-on-surface-variant animate-pulse">Computing projection matrices...</div>
+  }
 
   // Calculate future weekdays (Next 30 days)
   const futureWeekdays = countWeekdays(new Date(), 30)
   const projectedTotalAdSpend = futureWeekdays * dailySpend
 
-  // Calculate historical baseline multiplier
-  const { 
-    historicalAdSpend, historicalGross, historicalCost, historicalNet, 
-    historicalCommission, historicalClicks, historicalCalls, historicalOrganic 
-  } = historicalData
+  // Calculate Projections based on Constants
+  const projectedClicks = projectedTotalAdSpend / constants.cost_per_ppc_click
+  const projectedCalls = projectedTotalAdSpend / constants.cost_per_call
+  const projectedAdSalesCount = projectedTotalAdSpend / constants.cost_per_sale
+  const projectedAdRevenue = projectedAdSalesCount * constants.average_sale_value
+  
+  // Total Gross uses the Paid Ad percentage
+  const projectedGross = projectedAdRevenue / (constants.paid_ad_sales_pct / 100)
+  const projectedCost = projectedGross * (constants.cost_of_goods_pct / 100)
+  const projectedCommission = projectedGross * (constants.commission_pct / 100)
+  const projectedNet = projectedGross - projectedCost - projectedCommission
 
-  const ratio = historicalAdSpend > 0 ? (projectedTotalAdSpend / historicalAdSpend) : 0
-
-  // Projected Totals
-  const projectedGross = historicalGross * ratio
-  const projectedCost = historicalCost * ratio
-  const projectedNet = historicalNet * ratio
-  const projectedCommission = historicalCommission * ratio
-  const projectedClicks = historicalClicks * ratio
-  const projectedCalls = historicalCalls * ratio
-  const projectedOrganic = historicalOrganic * ratio // Assuming organic scales with brand awareness from spend
+  // Organic visits scaled by a percentage of PPC Clicks
+  const projectedOrganic = projectedClicks * (constants.organic_visits_pct / 100)
 
   // Calculate % change against the *actual* historical last 30 days
   const getPctChange = (projected: number, historical: number) => {
@@ -62,34 +100,63 @@ export default function ProjectionsView({ historicalData }: ProjectionsViewProps
     return ((projected - historical) / historical) * 100
   }
 
-  const pctChangeGross = getPctChange(projectedGross, historicalGross)
-  const pctChangeAdSpend = getPctChange(projectedTotalAdSpend, historicalAdSpend)
-  const pctChangeNet = getPctChange(projectedNet, historicalNet)
-  const pctChangeCommission = getPctChange(projectedCommission, historicalCommission)
+  const pctChangeGross = getPctChange(projectedGross, historicalData.historicalGross)
+  const pctChangeAdSpend = getPctChange(projectedTotalAdSpend, historicalData.historicalAdSpend)
+  const pctChangeNet = getPctChange(projectedNet, historicalData.historicalNet)
+  const pctChangeCommission = getPctChange(projectedCommission, historicalData.historicalCommission)
   
-  const pctChangeClicks = getPctChange(projectedClicks, historicalClicks)
-  const pctChangeCalls = getPctChange(projectedCalls, historicalCalls)
-  const pctChangeOrganic = getPctChange(projectedOrganic, historicalOrganic)
+  const pctChangeClicks = getPctChange(projectedClicks, historicalData.historicalClicks)
+  const pctChangeCalls = getPctChange(projectedCalls, historicalData.historicalCalls)
+  const pctChangeOrganic = getPctChange(projectedOrganic, historicalData.historicalOrganic)
+
+  // Pre-generate pseudo-random deterministic distribution weights for weekdays
+  const varianceWeights = []
+  let weightSum = 0
+  for (let i = 0; i < futureWeekdays; i++) {
+    // Math.sin provides a wave-like variation. Combining multiple creates a pseudo-random look
+    const val = 1.0 + Math.sin(i * 13.9) * 0.15 + Math.cos(i * 7.1) * 0.1
+    varianceWeights.push(val)
+    weightSum += val
+  }
+  // Normalize so the sum is exactly futureWeekdays
+  const normalizedWeights = varianceWeights.map(v => (v / weightSum) * futureWeekdays)
 
   // Generate 30 Day Chart Data (Future)
   const chartDataArray = []
   let chartDate = new Date()
+  let weekdayIdx = 0
+
   for (let i = 1; i <= 30; i++) {
     chartDate.setDate(chartDate.getDate() + 1)
     const dayStr = chartDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
     
-    // Ad spend is only on weekdays
     const isWeekday = chartDate.getDay() !== 0 && chartDate.getDay() !== 6
-    const dayAdSpend = isWeekday ? dailySpend : 0
     
-    // We distribute the performance evenly across the 30 days for smoothing
+    let dayAdSpend = 0
+    let dayGross = 0
+    let dayClicks = 0
+    let dayOrganic = 0
+    let dayCalls = 0
+
+    if (isWeekday) {
+      const weight = normalizedWeights[weekdayIdx]
+      // Multiply the average daily expectation by the normalized pseudo-random weight
+      dayAdSpend = dailySpend
+      dayGross = (projectedGross / futureWeekdays) * weight
+      dayClicks = (projectedClicks / futureWeekdays) * weight
+      dayOrganic = (projectedOrganic / futureWeekdays) * weight
+      dayCalls = (projectedCalls / futureWeekdays) * weight
+      
+      weekdayIdx++
+    }
+    
     chartDataArray.push({
       name: dayStr,
-      grossSales: projectedGross / 30,
+      grossSales: dayGross,
       adSpend: dayAdSpend,
-      ppcClicks: projectedClicks / 30,
-      organicVisits: projectedOrganic / 30,
-      incomingCalls: projectedCalls / 30
+      ppcClicks: dayClicks,
+      organicVisits: dayOrganic,
+      incomingCalls: dayCalls
     })
   }
 
@@ -98,7 +165,7 @@ export default function ProjectionsView({ historicalData }: ProjectionsViewProps
   const formatNumber = (val: number) => new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(val)
 
   return (
-    <div className="max-w-7xl mx-auto space-y-10">
+    <div className="max-w-7xl mx-auto space-y-10 animate-in fade-in duration-700">
        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8">
          <div>
            <h1 className="text-4xl font-display font-medium text-on-surface mb-2">30-Day Projections</h1>
@@ -106,14 +173,12 @@ export default function ProjectionsView({ historicalData }: ProjectionsViewProps
               Forecasting baseline models mapped to dynamically adjusted daily spend.
            </p>
          </div>
-         {/* No Date Range filter - rigid 30 day forward projection */}
        </div>
        
        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <MetricsChart data={chartDataArray} />
           
           <div className="h-full">
-            {/* The AdSpendSimulator replaces the LiveIntelChat card here */}
             <AdSpendSimulator 
               dailySpend={dailySpend}
               onDailySpendChange={setDailySpend}
@@ -138,7 +203,7 @@ export default function ProjectionsView({ historicalData }: ProjectionsViewProps
              title="Proj. Cost Of Goods" 
              value={formatCurrency(projectedCost)} 
              trendAmount={pctChangeGross.toFixed(1)} 
-             trendType={pctChangeGross > 0 ? 'negative' : pctChangeGross < 0 ? 'positive' : 'neutral'} // Increasing cost is negative trend visually
+             trendType={pctChangeGross > 0 ? 'negative' : pctChangeGross < 0 ? 'positive' : 'neutral'}
              icon={<Activity size={20} />} 
            />
            <StatCard 

@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { UserPlus, Shield, Mail, Calendar, UserCheck } from 'lucide-react'
+import { UserPlus, Shield, Mail, Calendar, UserCheck, Settings2, DollarSign } from 'lucide-react'
+import { createClient } from '@/utils/supabase/client'
 
 interface UserProfile {
   id: string
@@ -17,9 +18,45 @@ export default function AdminPage() {
   const [isFetching, setIsFetching] = useState(true)
   const [message, setMessage] = useState<{ text: string, type: 'success' | 'error' } | null>(null)
 
+  const [constants, setConstants] = useState({
+    id: 1,
+    cost_per_ppc_click: 1.37,
+    cost_per_call: 17.42,
+    cost_per_sale: 76.84,
+    average_sale_value: 473.60,
+    paid_ad_sales_pct: 12.5,
+    cost_of_goods_pct: 30.0,
+    commission_pct: 10.0,
+    organic_visits_pct: 66.0,
+  })
+  const [isSaving, setIsSaving] = useState(false)
+  const [constantsMessage, setConstantsMessage] = useState<{ text: string, type: 'success' | 'error' } | null>(null)
+
   useEffect(() => {
     fetchUsers()
+    fetchConstants()
   }, [])
+
+  async function fetchConstants() {
+    const supabase = createClient()
+    const { data } = await supabase.from('projection_constants').select('*').eq('id', 1).single()
+    if (data) setConstants(data)
+  }
+
+  async function handleSaveConstants(e: React.FormEvent) {
+    e.preventDefault()
+    setIsSaving(true)
+    setConstantsMessage(null)
+    const supabase = createClient()
+    const { error } = await supabase.from('projection_constants').upsert(constants)
+    if (error) {
+      setConstantsMessage({ text: error.message, type: 'error' })
+    } else {
+      setConstantsMessage({ text: 'Constants saved securely.', type: 'success' })
+      setTimeout(() => setConstantsMessage(null), 3000)
+    }
+    setIsSaving(false)
+  }
 
   async function fetchUsers() {
     try {
@@ -170,6 +207,134 @@ export default function AdminPage() {
               </tbody>
             </table>
           </div>
+        </div>
+
+        {/* Projection Constants Builder */}
+        <div className="lg:col-span-3 bg-surface-container p-6 rounded-xl border border-outline-variant/10 shadow-sm overflow-hidden mb-8">
+          <div className="flex items-center space-x-2 mb-6">
+            <Settings2 size={20} className="text-primary" />
+            <h2 className="text-lg font-medium text-on-surface">Projection Constraints Simulator</h2>
+          </div>
+          
+          <form onSubmit={handleSaveConstants} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div>
+              <label className="block text-xs font-medium text-on-surface-variant uppercase tracking-wider mb-2">Cost Per PPC Click</label>
+              <div className="relative">
+                <DollarSign size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant/50" />
+                <input 
+                  type="number" step="0.01"
+                  value={constants.cost_per_ppc_click}
+                  onChange={(e) => setConstants({ ...constants, cost_per_ppc_click: parseFloat(e.target.value) })}
+                  className="w-full bg-surface-container-low text-on-surface rounded-lg pl-10 pr-4 py-3 focus:outline-none focus:ring-1 focus:ring-primary/50 text-sm"
+                  required
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-on-surface-variant uppercase tracking-wider mb-2">Cost Per Call</label>
+              <div className="relative">
+                <DollarSign size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant/50" />
+                <input 
+                  type="number" step="0.01"
+                  value={constants.cost_per_call}
+                  onChange={(e) => setConstants({ ...constants, cost_per_call: parseFloat(e.target.value) })}
+                  className="w-full bg-surface-container-low text-on-surface rounded-lg pl-10 pr-4 py-3 focus:outline-none focus:ring-1 focus:ring-primary/50 text-sm"
+                  required
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-on-surface-variant uppercase tracking-wider mb-2">Cost Per Sale</label>
+              <div className="relative">
+                <DollarSign size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant/50" />
+                <input 
+                  type="number" step="0.01"
+                  value={constants.cost_per_sale}
+                  onChange={(e) => setConstants({ ...constants, cost_per_sale: parseFloat(e.target.value) })}
+                  className="w-full bg-surface-container-low text-on-surface rounded-lg pl-10 pr-4 py-3 focus:outline-none focus:ring-1 focus:ring-primary/50 text-sm"
+                  required
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-on-surface-variant uppercase tracking-wider mb-2">Average Sale Value</label>
+              <div className="relative">
+                <DollarSign size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant/50" />
+                <input 
+                  type="number" step="0.01"
+                  value={constants.average_sale_value}
+                  onChange={(e) => setConstants({ ...constants, average_sale_value: parseFloat(e.target.value) })}
+                  className="w-full bg-surface-container-low text-on-surface rounded-lg pl-10 pr-4 py-3 focus:outline-none focus:ring-1 focus:ring-primary/50 text-sm"
+                  required
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-on-surface-variant uppercase tracking-wider mb-2">Paid Ad Sales (%)</label>
+              <input 
+                type="number" step="0.1"
+                value={constants.paid_ad_sales_pct}
+                onChange={(e) => setConstants({ ...constants, paid_ad_sales_pct: parseFloat(e.target.value) })}
+                className="w-full bg-surface-container-low text-on-surface rounded-lg px-4 py-3 focus:outline-none focus:ring-1 focus:ring-primary/50 text-sm"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-on-surface-variant uppercase tracking-wider mb-2">Cost Of Goods (%)</label>
+              <input 
+                type="number" step="0.1"
+                value={constants.cost_of_goods_pct}
+                onChange={(e) => setConstants({ ...constants, cost_of_goods_pct: parseFloat(e.target.value) })}
+                className="w-full bg-surface-container-low text-on-surface rounded-lg px-4 py-3 focus:outline-none focus:ring-1 focus:ring-primary/50 text-sm"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-on-surface-variant uppercase tracking-wider mb-2">Commission (%)</label>
+              <input 
+                type="number" step="0.1"
+                value={constants.commission_pct}
+                onChange={(e) => setConstants({ ...constants, commission_pct: parseFloat(e.target.value) })}
+                className="w-full bg-surface-container-low text-on-surface rounded-lg px-4 py-3 focus:outline-none focus:ring-1 focus:ring-primary/50 text-sm"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-on-surface-variant uppercase tracking-wider mb-2">Organic Visits (%)</label>
+              <input 
+                type="number" step="0.1"
+                value={constants.organic_visits_pct}
+                onChange={(e) => setConstants({ ...constants, organic_visits_pct: parseFloat(e.target.value) })}
+                className="w-full bg-surface-container-low text-on-surface rounded-lg px-4 py-3 focus:outline-none focus:ring-1 focus:ring-primary/50 text-sm"
+                required
+              />
+            </div>
+
+            <div className="flex items-end md:col-span-2 lg:col-span-1">
+              <button 
+                type="submit" 
+                disabled={isSaving}
+                className="w-full primary-btn py-3 text-sm flex items-center justify-center space-x-2 disabled:opacity-50 h-[46px]"
+              >
+                <span>{isSaving ? 'Syncing...' : 'Update Constants'}</span>
+              </button>
+            </div>
+            
+            {constantsMessage && (
+              <div className={`md:col-span-2 lg:col-span-4 p-3 rounded-lg text-xs font-medium border ${
+                constantsMessage.type === 'success' ? 'bg-primary/10 text-primary border-primary/20' : 'bg-error/10 text-error border-error/20'
+              }`}>
+                {constantsMessage.text}
+              </div>
+            )}
+          </form>
         </div>
       </div>
     </div>
