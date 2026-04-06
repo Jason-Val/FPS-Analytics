@@ -51,13 +51,13 @@ export default function UpdatePasswordPage() {
       <div className="w-full max-w-md bg-surface-container p-8 rounded-xl shadow-2xl relative overflow-hidden">
         <div className="absolute top-0 left-0 right-0 h-1 bg-primary-gradient"></div>
         <h1 className="text-3xl mb-2 text-primary font-display font-medium">New Password</h1>
-        <p className="text-on-surface-variant mb-8 text-sm">Enter a secure new passcode for your identity.</p>
+        <p className="text-on-surface-variant mb-8 text-sm">Enter a secure new password for your identity.</p>
 
         <form onSubmit={handleUpdatePassword} className="space-y-6">
           <div>
-            <label className="block text-sm font-medium text-on-surface-variant mb-2">New Passcode</label>
-            <input 
-              type="password" 
+            <label className="block text-sm font-medium text-on-surface-variant mb-2">New Password</label>
+            <input
+              type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="w-full bg-surface-container-low text-on-surface rounded-md px-4 py-3 focus:outline-none focus:ring-1 focus:ring-primary/50 transistion-all ghost-border"
@@ -69,8 +69,8 @@ export default function UpdatePasswordPage() {
 
           {error && <div className="text-error text-sm p-3 bg-error/10 rounded-md border border-error/20">{error}</div>}
 
-          <button 
-            type="submit" 
+          <button
+            type="submit"
             disabled={isLoading}
             className="w-full primary-btn mt-4 disabled:opacity-50"
           >
