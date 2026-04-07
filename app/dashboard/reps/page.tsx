@@ -33,6 +33,14 @@ export default async function SalesRepsPage(props: { searchParams?: Promise<{ fr
 
   const allSales = await fetchAllSales()
 
+  // 1.5 Fetch Eligible Reps & Constants
+  const { data: salesReps } = await supabase.from('sales_reps').select('*')
+  const eligibleReps = salesReps ? salesReps.filter(r => r.is_eligible).map(r => r.name) : []
+  const repsMap = new Map(salesReps?.map(r => [r.name, r]))
+  
+  const { data: constants } = await supabase.from('projection_constants').select('commission_pct').eq('id', 1).single()
+  const commissionRate = constants ? (constants.commission_pct / 100) : 0.03
+
   // 2. Extract Unique Reps
   const uniqueReps = Array.from(new Set(allSales.map(s => s.sales_rep).filter(Boolean))) as string[]
   uniqueReps.sort()
@@ -59,7 +67,63 @@ export default async function SalesRepsPage(props: { searchParams?: Promise<{ fr
   const totalSalesCount = cardSales.length
   const grossSales = cardSales.reduce((sum, row) => sum + (Number(row.amount) || 0), 0)
   const netSales = cardSales.reduce((sum, row) => sum + (Number(row.net_sales) || 0), 0)
-  const commissionPaid = cardSales.reduce((sum, row) => sum + (Number(row.commission_paid) || 0), 0)
+  
+  // Commission & Salary Paid Calculus
+  let numberOfDays = 0
+  let startDate = new Date()
+  let endDate = new Date()
+
+  if (from && to) {
+     startDate = new Date(from)
+     endDate = new Date(to)
+     numberOfDays = Math.max(1, Math.floor((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1)
+  } else if (allSales.length > 0) {
+     startDate = new Date(Math.min(...allSales.map(s => new Date(s.date).getTime())))
+     endDate = new Date(Math.max(...allSales.map(s => new Date(s.date).getTime())))
+     numberOfDays = Math.max(1, Math.floor((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1)
+  }
+
+  let numberOfFridays = 0
+  let currentDate = new Date(startDate)
+  currentDate.setUTCHours(0,0,0,0)
+  const endLimit = new Date(endDate)
+  endLimit.setUTCHours(23,59,59,999)
+  
+  while (currentDate <= endLimit) {
+    if (currentDate.getUTCDay() === 5) {
+      numberOfFridays++
+    }
+    currentDate.setUTCDate(currentDate.getUTCDate() + 1)
+  }
+
+  const repSalesMap: Record<string, number> = {}
+  cardSales.forEach(row => {
+    if (!row.sales_rep) return
+    if (!repSalesMap[row.sales_rep]) repSalesMap[row.sales_rep] = 0
+    repSalesMap[row.sales_rep] += (Number(row.amount) || 0)
+  })
+
+  let commissionPaid = 0
+  let totalSalaryCost = 0
+  
+  const repsToAssess = selectedRep && selectedRep !== 'all' ? [selectedRep] : uniqueReps
+
+  repsToAssess.forEach(repName => {
+    // commission calculation
+    if (eligibleReps.includes(repName)) {
+       const repGross = repSalesMap[repName] || 0
+       const repDeduction = numberOfDays * 833
+       commissionPaid += Math.max(0, repGross - repDeduction) * commissionRate
+    }
+    
+    // salary calculation
+    const repData = repsMap.get(repName)
+    if (repData && repData.weekly_salary) {
+      totalSalaryCost += Number(repData.weekly_salary) * numberOfFridays
+    }
+  })
+  
+  const trueNetProfit = netSales - commissionPaid - totalSalaryCost
 
   // 5. Format Data for RepPerformanceChart
   // Even if a rep is selected, we show all reps in the chart comparison (unless the user specifically wants only one)
@@ -118,17 +182,11 @@ export default async function SalesRepsPage(props: { searchParams?: Promise<{ fr
           />
        </div>
 
-       <div>
+        <div>
          <h3 className="text-xl font-display font-medium text-on-surface mb-4">
            {selectedRep && selectedRep !== 'all' ? `${selectedRep}'s Performance` : 'Aggregated Rep Metrics'}
          </h3>
-         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-           <StatCard 
-             title="Number of Sales" 
-             value={formatNumber(totalSalesCount)} 
-             trendAmount="-- " 
-             icon={<ShoppingBag size={20} />} 
-           />
+         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
            <StatCard 
              title="Gross Sales" 
              value={formatCurrency(grossSales)} 
@@ -146,6 +204,18 @@ export default async function SalesRepsPage(props: { searchParams?: Promise<{ fr
              value={formatCurrency(commissionPaid)} 
              trendAmount="-- " 
              icon={<CreditCard size={20} />} 
+           />
+           <StatCard 
+             title="Salary Cost" 
+             value={formatCurrency(totalSalaryCost)} 
+             trendAmount="-- " 
+             icon={<DollarSign size={20} />} 
+           />
+           <StatCard 
+             title="True Net Profit" 
+             value={formatCurrency(trueNetProfit)} 
+             trendAmount="-- " 
+             icon={<TrendingUp size={20} />} 
            />
          </div>
        </div>

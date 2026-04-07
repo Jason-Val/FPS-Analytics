@@ -44,9 +44,21 @@ function countWeekdays(startDate: Date, days: number): number {
   return count
 }
 
+function countFridays(startDate: Date, days: number): number {
+  let count = 0
+  let currentDate = new Date(startDate)
+  for (let i = 0; i < days; i++) {
+    if (currentDate.getDay() === 5) count++
+    currentDate.setDate(currentDate.getDate() + 1)
+  }
+  return count
+}
+
 export default function ProjectionsView({ historicalData }: ProjectionsViewProps) {
   const [dailySpend, setDailySpend] = useState(237.50)
   const [constants, setConstants] = useState<ProjectionConstants | null>(null)
+  const [eligibleRepsCount, setEligibleRepsCount] = useState<number>(0)
+  const [totalWeeklySalary, setTotalWeeklySalary] = useState<number>(0)
   
   useEffect(() => {
     async function fetchConstants() {
@@ -67,6 +79,13 @@ export default function ProjectionsView({ historicalData }: ProjectionsViewProps
           organic_visits_pct: 66.0,
         })
       }
+      
+      const { data: salesReps } = await supabase.from('sales_reps').select('*')
+      const totalEligible = salesReps ? salesReps.filter(r => r.is_eligible).length : 0
+      const totalSalary = salesReps ? salesReps.reduce((sum, r) => sum + (Number(r.weekly_salary) || 0), 0) : 0
+      
+      setEligibleRepsCount(totalEligible)
+      setTotalWeeklySalary(totalSalary)
     }
     fetchConstants()
   }, [])
@@ -88,8 +107,15 @@ export default function ProjectionsView({ historicalData }: ProjectionsViewProps
   // Total Gross uses the Paid Ad percentage
   const projectedGross = projectedAdRevenue / (constants.paid_ad_sales_pct / 100)
   const projectedCost = projectedGross * (constants.cost_of_goods_pct / 100)
-  const projectedCommission = projectedGross * (constants.commission_pct / 100)
-  const projectedNet = projectedGross - projectedCost - projectedCommission
+  
+  const totalDeduction = 30 * 833 * eligibleRepsCount
+  const projectedCommission = Math.max(0, projectedGross - totalDeduction) * (constants.commission_pct / 100)
+  
+  const projectedNet = projectedGross - projectedCost
+  
+  const futureFridays = countFridays(new Date(), 30)
+  const projectedSalaryCost = totalWeeklySalary * futureFridays
+  const projectedTrueNet = projectedNet - projectedCommission - projectedSalaryCost
 
   // Organic visits scaled by a percentage of PPC Clicks
   const projectedOrganic = projectedClicks * (constants.organic_visits_pct / 100)
@@ -104,6 +130,9 @@ export default function ProjectionsView({ historicalData }: ProjectionsViewProps
   const pctChangeAdSpend = getPctChange(projectedTotalAdSpend, historicalData.historicalAdSpend)
   const pctChangeNet = getPctChange(projectedNet, historicalData.historicalNet)
   const pctChangeCommission = getPctChange(projectedCommission, historicalData.historicalCommission)
+  
+  // Historical data doesn't track salary dynamically here yet, so we'll compare True Net with basic Net for now
+  const pctChangeTrueNet = getPctChange(projectedTrueNet, historicalData.historicalNet)
   
   const pctChangeClicks = getPctChange(projectedClicks, historicalData.historicalClicks)
   const pctChangeCalls = getPctChange(projectedCalls, historicalData.historicalCalls)
@@ -189,9 +218,9 @@ export default function ProjectionsView({ historicalData }: ProjectionsViewProps
           </div>
        </div>
 
-       <div>
+        <div>
          <h3 className="text-xl font-display font-medium text-on-surface mb-4">Projected Financial Overview</h3>
-         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
            <StatCard 
              title="Proj. Gross Sales" 
              value={formatCurrency(projectedGross)} 
@@ -219,6 +248,19 @@ export default function ProjectionsView({ historicalData }: ProjectionsViewProps
              trendAmount={pctChangeCommission.toFixed(1)} 
              trendType={pctChangeCommission > 0 ? 'negative' : pctChangeCommission < 0 ? 'positive' : 'neutral'}
              icon={<CreditCard size={20} />} 
+           />
+           <StatCard 
+             title="Proj. Salary Cost" 
+             value={formatCurrency(projectedSalaryCost)} 
+             trendAmount="-- " 
+             icon={<DollarSign size={20} />} 
+           />
+           <StatCard 
+             title="Proj. True Net Profit" 
+             value={formatCurrency(projectedTrueNet)} 
+             trendAmount={pctChangeTrueNet.toFixed(1)} 
+             trendType={pctChangeTrueNet > 0 ? 'positive' : pctChangeTrueNet < 0 ? 'negative' : 'neutral'}
+             icon={<TrendingUp size={20} />} 
            />
          </div>
        </div>

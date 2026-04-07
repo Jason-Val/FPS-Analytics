@@ -11,12 +11,21 @@ interface UserProfile {
   created_at: string
 }
 
+interface SalesRep {
+  id: string
+  name: string
+  is_eligible: boolean
+  weekly_salary: number
+}
+
 export default function AdminPage() {
   const [email, setEmail] = useState('')
   const [users, setUsers] = useState<UserProfile[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [isFetching, setIsFetching] = useState(true)
   const [message, setMessage] = useState<{ text: string, type: 'success' | 'error' } | null>(null)
+  
+  const [reps, setReps] = useState<SalesRep[]>([])
 
   const [constants, setConstants] = useState({
     id: 1,
@@ -35,7 +44,26 @@ export default function AdminPage() {
   useEffect(() => {
     fetchUsers()
     fetchConstants()
+    fetchReps()
   }, [])
+
+  async function fetchReps() {
+    const supabase = createClient()
+    const { data } = await supabase.from('sales_reps').select('*').order('name')
+    if (data) setReps(data)
+  }
+
+  async function toggleRepEligibility(id: string, currentStatus: boolean) {
+    const supabase = createClient()
+    await supabase.from('sales_reps').update({ is_eligible: !currentStatus }).eq('id', id)
+    fetchReps()
+  }
+
+  async function updateRepSalary(id: string, salary: number) {
+    const supabase = createClient()
+    await supabase.from('sales_reps').update({ weekly_salary: salary }).eq('id', id)
+    fetchReps()
+  }
 
   async function fetchConstants() {
     const supabase = createClient()
@@ -206,6 +234,65 @@ export default function AdminPage() {
                 )}
               </tbody>
             </table>
+          </div>
+        </div>
+
+        {/* Sales Representative Directory */}
+        <div className="lg:col-span-3 bg-surface-container p-6 rounded-xl border border-outline-variant/10 shadow-sm overflow-hidden mb-2">
+          <div className="flex items-center space-x-2 mb-6">
+            <UserCheck size={20} className="text-primary" />
+            <h2 className="text-lg font-medium text-on-surface">Sales Representatives</h2>
+            <p className="text-xs text-on-surface-variant ml-4 uppercase tracking-wider font-bold">Commission Eligibility</p>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {reps.map(rep => (
+              <div key={rep.id} className="flex flex-col gap-2 p-3 border border-outline-variant/20 rounded-md bg-surface-container-low/50">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-on-surface">{rep.name}</span>
+                  <button
+                    onClick={() => toggleRepEligibility(rep.id, rep.is_eligible)}
+                    className={`px-3 py-1 text-xs font-bold rounded-full transition-colors border ${
+                      rep.is_eligible 
+                        ? 'bg-primary/20 text-primary border-primary/30 hover:bg-error/20 hover:text-error hover:border-error/30' 
+                        : 'bg-surface-container-high text-on-surface-variant border-outline-variant/30 hover:bg-primary/20 hover:text-primary hover:border-primary/30'
+                    }`}
+                  >
+                    {rep.is_eligible ? 'ELIGIBLE' : 'INELIGIBLE'}
+                  </button>
+                </div>
+                <div className="flex items-center gap-2 mt-1">
+                   <label className="text-[10px] text-on-surface-variant uppercase tracking-wider font-bold whitespace-nowrap">Weekly Salary</label>
+                   <div className="relative flex-1">
+                     <DollarSign size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-on-surface-variant" />
+                     <input
+                       type="number"
+                       id={`salary-input-${rep.id}`}
+                       defaultValue={rep.weekly_salary}
+                       className="w-full bg-background text-on-surface rounded-md pl-6 pr-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary/50 transition-all ghost-border"
+                       placeholder="0.00"
+                       onKeyDown={(e) => {
+                         if (e.key === 'Enter') {
+                           updateRepSalary(rep.id, parseFloat((e.target as HTMLInputElement).value) || 0)
+                         }
+                       }}
+                     />
+                   </div>
+                   <button
+                     onClick={() => {
+                       const input = document.getElementById(`salary-input-${rep.id}`) as HTMLInputElement
+                       if (input) updateRepSalary(rep.id, parseFloat(input.value) || 0)
+                     }}
+                     className="px-3 py-1.5 text-[10px] uppercase font-bold tracking-wider rounded bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 transition-colors"
+                   >
+                     Save
+                   </button>
+                </div>
+              </div>
+            ))}
+            {reps.length === 0 && (
+              <div className="text-sm text-on-surface-variant italic">No representatives synced from transactions yet.</div>
+            )}
           </div>
         </div>
 

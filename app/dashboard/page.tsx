@@ -34,17 +34,64 @@ export default async function DashboardPage(props: { searchParams?: Promise<{ fr
   const sales = await fetchAll('sales')
   const metrics = await fetchAll('marketing_metrics')
 
-  // 2. Aggregate Data
+  // 2. Fetch Eligible Reps & Constants
+  const { data: salesReps } = await supabase.from('sales_reps').select('*')
+  const eligibleReps = salesReps ? salesReps.filter(r => r.is_eligible).map(r => r.name) : []
+  const totalWeeklySalary = salesReps ? salesReps.reduce((sum, r) => sum + (Number(r.weekly_salary) || 0), 0) : 0
+  
+  const { data: constants } = await supabase.from('projection_constants').select('commission_pct').eq('id', 1).single()
+  const commissionRate = constants ? (constants.commission_pct / 100) : 0.03
+
+  // 3. Aggregate Data
   const grossSales = sales.reduce((sum, row) => sum + (Number(row.amount) || 0), 0)
   const costOfGoods = sales.reduce((sum, row) => sum + (Number(row.cost_of_goods) || 0), 0)
   const netSales = sales.reduce((sum, row) => sum + (Number(row.net_sales) || 0), 0)
-  const commissionPaid = sales.reduce((sum, row) => sum + (Number(row.commission_paid) || 0), 0)
+
+  // Commission Paid Calculus
+  // Calculate numberOfDays and Fridays
+  let numberOfDays = 0
+  let startDate = new Date()
+  let endDate = new Date()
+
+  if (from && to) {
+     startDate = new Date(from)
+     endDate = new Date(to)
+     numberOfDays = Math.max(1, Math.floor((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1)
+  } else if (sales.length > 0) {
+     startDate = new Date(Math.min(...sales.map(s => new Date(s.date).getTime())))
+     endDate = new Date(Math.max(...sales.map(s => new Date(s.date).getTime())))
+     numberOfDays = Math.max(1, Math.floor((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1)
+  }
+  
+  let numberOfFridays = 0
+  let currentDate = new Date(startDate)
+  currentDate.setUTCHours(0,0,0,0)
+  const endLimit = new Date(endDate)
+  endLimit.setUTCHours(23,59,59,999)
+  
+  while (currentDate <= endLimit) {
+    if (currentDate.getUTCDay() === 5) {
+      numberOfFridays++
+    }
+    currentDate.setUTCDate(currentDate.getUTCDate() + 1)
+  }
+
+  const eligibleSales = sales.filter(s => eligibleReps.includes(s.sales_rep))
+  const eligibleGrossSales = eligibleSales.reduce((sum, row) => sum + (Number(row.amount) || 0), 0)
+  const activeEligibleRepsCount = new Set(eligibleSales.map(s => s.sales_rep)).size
+  
+  const totalDeduction = numberOfDays * 833 * activeEligibleRepsCount
+  const commissionPaid = Math.max(0, eligibleGrossSales - totalDeduction) * commissionRate
+  
+  const totalSalaryCost = totalWeeklySalary * numberOfFridays
+  const trueNetProfit = netSales - commissionPaid - totalSalaryCost
+  
   const ppcClicks = metrics.reduce((sum, row) => sum + (Number(row.google_ppc_clicks) || 0), 0)
   const organicVisits = metrics.reduce((sum, row) => sum + (Number(row.organic_visits) || 0), 0)
   const incomingCalls = metrics.reduce((sum, row) => sum + (Number(row.incoming_calls) || 0), 0)
   const adSpendTotal = metrics.reduce((sum, row) => sum + (Number(row.ad_spend) || 0), 0)
 
-  // 3. Format Date Series for MetricsChart (All Metrics mapped onto single timescale)
+  // 4. Format Date Series for MetricsChart (All Metrics mapped onto single timescale)
   const chartDataMap: Record<string, any> = {}
   
   const initDate = (dateStr: string) => {
@@ -129,9 +176,9 @@ export default async function DashboardPage(props: { searchParams?: Promise<{ fr
           </div>
        </div>
 
-       <div>
+        <div>
          <h3 className="text-xl font-display font-medium text-on-surface mb-4">Financial Overview</h3>
-         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
            <StatCard 
              title="Gross Sales" 
              value={formatCurrency(grossSales)} 
@@ -155,6 +202,18 @@ export default async function DashboardPage(props: { searchParams?: Promise<{ fr
              value={formatCurrency(commissionPaid)} 
              trendAmount="-- " 
              icon={<CreditCard size={20} />} 
+           />
+           <StatCard 
+             title="Salary Cost" 
+             value={formatCurrency(totalSalaryCost)} 
+             trendAmount="-- " 
+             icon={<DollarSign size={20} />} 
+           />
+           <StatCard 
+             title="True Net Profit" 
+             value={formatCurrency(trueNetProfit)} 
+             trendAmount="-- " 
+             icon={<TrendingUp size={20} />} 
            />
          </div>
        </div>
