@@ -84,12 +84,12 @@ export default async function DashboardPage(props: { searchParams?: Promise<{ fr
   const commissionPaid = Math.max(0, eligibleGrossSales - totalDeduction) * commissionRate
   
   const totalSalaryCost = totalWeeklySalary * numberOfFridays
-  const trueNetProfit = netSales - commissionPaid - totalSalaryCost
+  const adSpendTotal = metrics.reduce((sum, row) => sum + (Number(row.ad_spend) || 0), 0)
+  const trueNetProfit = netSales - commissionPaid - totalSalaryCost - adSpendTotal
   
   const ppcClicks = metrics.reduce((sum, row) => sum + (Number(row.google_ppc_clicks) || 0), 0)
   const organicVisits = metrics.reduce((sum, row) => sum + (Number(row.organic_visits) || 0), 0)
   const incomingCalls = metrics.reduce((sum, row) => sum + (Number(row.incoming_calls) || 0), 0)
-  const adSpendTotal = metrics.reduce((sum, row) => sum + (Number(row.ad_spend) || 0), 0)
 
   // 4. Format Date Series for MetricsChart (All Metrics mapped onto single timescale)
   const chartDataMap: Record<string, any> = {}

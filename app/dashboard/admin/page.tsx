@@ -26,6 +26,8 @@ export default function AdminPage() {
   const [message, setMessage] = useState<{ text: string, type: 'success' | 'error' } | null>(null)
   
   const [reps, setReps] = useState<SalesRep[]>([])
+  const [newRepName, setNewRepName] = useState('')
+  const [isAddingRep, setIsAddingRep] = useState(false)
 
   const [constants, setConstants] = useState({
     id: 1,
@@ -62,6 +64,17 @@ export default function AdminPage() {
   async function updateRepSalary(id: string, salary: number) {
     const supabase = createClient()
     await supabase.from('sales_reps').update({ weekly_salary: salary }).eq('id', id)
+    fetchReps()
+  }
+
+  async function handleAddRep(e: React.FormEvent) {
+    e.preventDefault()
+    if (!newRepName.trim()) return
+    setIsAddingRep(true)
+    const supabase = createClient()
+    await supabase.from('sales_reps').insert([{ name: newRepName.trim(), is_eligible: true, weekly_salary: 1000 }])
+    setNewRepName('')
+    setIsAddingRep(false)
     fetchReps()
   }
 
@@ -239,10 +252,28 @@ export default function AdminPage() {
 
         {/* Sales Representative Directory */}
         <div className="lg:col-span-3 bg-surface-container p-6 rounded-xl border border-outline-variant/10 shadow-sm overflow-hidden mb-2">
-          <div className="flex items-center space-x-2 mb-6">
-            <UserCheck size={20} className="text-primary" />
-            <h2 className="text-lg font-medium text-on-surface">Sales Representatives</h2>
-            <p className="text-xs text-on-surface-variant ml-4 uppercase tracking-wider font-bold">Commission Eligibility</p>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+            <div className="flex items-center space-x-2">
+              <UserCheck size={20} className="text-primary" />
+              <h2 className="text-lg font-medium text-on-surface">Sales Representatives</h2>
+              <p className="text-xs text-on-surface-variant ml-4 uppercase tracking-wider font-bold">Commission Eligibility</p>
+            </div>
+            <form onSubmit={handleAddRep} className="flex items-center gap-2 w-full sm:w-auto">
+              <input
+                type="text"
+                placeholder="New Rep Name..."
+                value={newRepName}
+                onChange={(e) => setNewRepName(e.target.value)}
+                className="bg-surface-container-low text-on-surface rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary/50 border border-outline-variant/20"
+              />
+              <button
+                type="submit"
+                disabled={isAddingRep || !newRepName.trim()}
+                className="px-3 py-1.5 text-xs font-bold rounded-lg bg-primary text-on-primary hover:bg-primary/90 transition-colors disabled:opacity-50"
+              >
+                {isAddingRep ? 'Adding...' : 'Add Rep'}
+              </button>
+            </form>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">

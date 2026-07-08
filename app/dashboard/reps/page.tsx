@@ -13,13 +13,13 @@ export default async function SalesRepsPage(props: { searchParams?: Promise<{ fr
 
   const supabase = await createClient()
 
-  // 1. Fetch all sales data (needed for both unique rep list and metrics)
-  async function fetchAllSales() {
+  // 1. Fetch all data (needed for both unique rep list and metrics)
+  async function fetchAll(table: string) {
     let allData: any[] = []
     let page = 0
     const pageSize = 1000
     while (true) {
-      let query = supabase.from('sales').select('*').range(page * pageSize, (page + 1) * pageSize - 1)
+      let query = supabase.from(table).select('*').range(page * pageSize, (page + 1) * pageSize - 1)
       
       const { data } = await query
       if (!data || data.length === 0) break
@@ -31,7 +31,8 @@ export default async function SalesRepsPage(props: { searchParams?: Promise<{ fr
     return allData
   }
 
-  const allSales = await fetchAllSales()
+  const allSales = await fetchAll('sales')
+  const allMetrics = await fetchAll('marketing_metrics')
 
   // 1.5 Fetch Eligible Reps & Constants
   const { data: salesReps } = await supabase.from('sales_reps').select('*')
@@ -47,6 +48,7 @@ export default async function SalesRepsPage(props: { searchParams?: Promise<{ fr
 
   // 3. Filter Sales Data for Cards and Chart
   let filteredSales = allSales
+  let filteredMetrics = allMetrics
 
   // Time filter
   if (from && to) {
@@ -54,6 +56,10 @@ export default async function SalesRepsPage(props: { searchParams?: Promise<{ fr
     const toDate = new Date(to)
     filteredSales = filteredSales.filter(s => {
        const d = new Date(s.date)
+       return d >= fromDate && d <= toDate
+    })
+    filteredMetrics = filteredMetrics.filter(m => {
+       const d = new Date(m.date)
        return d >= fromDate && d <= toDate
     })
   }
@@ -123,7 +129,10 @@ export default async function SalesRepsPage(props: { searchParams?: Promise<{ fr
     }
   })
   
-  const trueNetProfit = netSales - commissionPaid - totalSalaryCost
+  const adSpendTotal = filteredMetrics.reduce((sum, row) => sum + (Number(row.ad_spend) || 0), 0)
+  const totalFilteredGross = filteredSales.reduce((sum, row) => sum + (Number(row.amount) || 0), 0)
+  const allocatedAdSpend = totalFilteredGross > 0 ? (grossSales / totalFilteredGross) * adSpendTotal : adSpendTotal
+  const trueNetProfit = netSales - commissionPaid - totalSalaryCost - allocatedAdSpend
 
   // 5. Format Data for RepPerformanceChart
   // Even if a rep is selected, we show all reps in the chart comparison (unless the user specifically wants only one)

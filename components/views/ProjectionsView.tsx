@@ -115,7 +115,7 @@ export default function ProjectionsView({ historicalData }: ProjectionsViewProps
   
   const futureFridays = countFridays(new Date(), 30)
   const projectedSalaryCost = totalWeeklySalary * futureFridays
-  const projectedTrueNet = projectedNet - projectedCommission - projectedSalaryCost
+  const projectedTrueNet = projectedNet - projectedCommission - projectedSalaryCost - projectedTotalAdSpend
 
   // Organic visits scaled by a percentage of PPC Clicks
   const projectedOrganic = projectedClicks * (constants.organic_visits_pct / 100)
