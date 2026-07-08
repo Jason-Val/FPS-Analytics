@@ -89,17 +89,17 @@ export default async function SalesRepsPage(props: { searchParams?: Promise<{ fr
      numberOfDays = Math.max(1, Math.floor((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1)
   }
 
-  let numberOfFridays = 0
-  let currentDate = new Date(startDate)
-  currentDate.setUTCHours(0,0,0,0)
-  const endLimit = new Date(endDate)
-  endLimit.setUTCHours(23,59,59,999)
-  
-  while (currentDate <= endLimit) {
-    if (currentDate.getUTCDay() === 5) {
-      numberOfFridays++
+  const countFridaysBetween = (s: Date, e: Date) => {
+    let count = 0
+    let curr = new Date(s)
+    curr.setUTCHours(0, 0, 0, 0)
+    const limit = new Date(e)
+    limit.setUTCHours(23, 59, 59, 999)
+    while (curr <= limit) {
+      if (curr.getUTCDay() === 5) count++
+      curr.setUTCDate(curr.getUTCDate() + 1)
     }
-    currentDate.setUTCDate(currentDate.getUTCDate() + 1)
+    return count
   }
 
   const repSalesMap: Record<string, number> = {}
@@ -112,26 +112,66 @@ export default async function SalesRepsPage(props: { searchParams?: Promise<{ fr
   let commissionPaid = 0
   let totalSalaryCost = 0
   
-  const repsToAssess = selectedRep && selectedRep !== 'all' ? [selectedRep] : uniqueReps
+  const repsToAssess = selectedRep && selectedRep !== 'all' ? [selectedRep] : (salesReps ? salesReps.map(r => r.name) : uniqueReps)
 
-  repsToAssess.forEach(repName => {
-    // commission calculation
-    if (eligibleReps.includes(repName)) {
-       const repGross = repSalesMap[repName] || 0
-       const repDeduction = numberOfDays * 833
-       commissionPaid += Math.max(0, repGross - repDeduction) * commissionRate
+  if (selectedRep && selectedRep !== 'all') {
+    const repName = selectedRep
+    const repData = repsMap.get(repName)
+    let effStart = new Date(startDate)
+    if (repData && repData.start_date) {
+      const repStart = new Date(repData.start_date)
+      if (repStart > effStart) effStart = repStart
     }
     
-    // salary calculation
-    const repData = repsMap.get(repName)
-    if (repData && repData.weekly_salary) {
-      totalSalaryCost += Number(repData.weekly_salary) * numberOfFridays
+    if (eligibleReps.includes(repName)) {
+       const repGross = repSalesMap[repName] || 0
+       const activeDays = effStart <= endDate ? Math.max(1, Math.floor((endDate.getTime() - effStart.getTime()) / (1000 * 60 * 60 * 24)) + 1) : 0
+       const repDeduction = activeDays * 833
+       commissionPaid = Math.max(0, repGross - repDeduction) * commissionRate
     }
-  })
+    
+    if (repData && repData.weekly_salary && effStart <= endDate) {
+       const fridays = countFridaysBetween(effStart, endDate)
+       totalSalaryCost = Number(repData.weekly_salary) * fridays
+    }
+  } else {
+    const eligibleCardSales = cardSales.filter(s => eligibleReps.includes(s.sales_rep))
+    const eligibleGrossSales = eligibleCardSales.reduce((sum, row) => sum + (Number(row.amount) || 0), 0)
+    let totalDeduction = 0
+    const activeEligibleRepNames = Array.from(new Set(eligibleCardSales.map(s => s.sales_rep)))
+    activeEligibleRepNames.forEach(repName => {
+      const repData = repsMap.get(repName)
+      let effStart = new Date(startDate)
+      if (repData && repData.start_date) {
+        const repStart = new Date(repData.start_date)
+        if (repStart > effStart) effStart = repStart
+      }
+      if (effStart <= endDate) {
+        const activeDays = Math.max(1, Math.floor((endDate.getTime() - effStart.getTime()) / (1000 * 60 * 60 * 24)) + 1)
+        totalDeduction += activeDays * 833
+      }
+    })
+    commissionPaid = Math.max(0, eligibleGrossSales - totalDeduction) * commissionRate
+
+    salesReps?.forEach(rep => {
+      if (!rep.weekly_salary) return
+      let effStart = new Date(startDate)
+      if (rep.start_date) {
+        const repStart = new Date(rep.start_date)
+        if (repStart > effStart) effStart = repStart
+      }
+      if (effStart <= endDate) {
+        const fridays = countFridaysBetween(effStart, endDate)
+        totalSalaryCost += Number(rep.weekly_salary) * fridays
+      }
+    })
+  }
   
   const adSpendTotal = filteredMetrics.reduce((sum, row) => sum + (Number(row.ad_spend) || 0), 0)
   const totalFilteredGross = filteredSales.reduce((sum, row) => sum + (Number(row.amount) || 0), 0)
-  const allocatedAdSpend = totalFilteredGross > 0 ? (grossSales / totalFilteredGross) * adSpendTotal : adSpendTotal
+  const allocatedAdSpend = (selectedRep && selectedRep !== 'all')
+    ? (totalFilteredGross > 0 ? (grossSales / totalFilteredGross) * adSpendTotal : 0)
+    : adSpendTotal
   const trueNetProfit = netSales - commissionPaid - totalSalaryCost - allocatedAdSpend
 
   // 5. Format Data for RepPerformanceChart

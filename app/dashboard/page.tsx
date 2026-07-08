@@ -63,27 +63,51 @@ export default async function DashboardPage(props: { searchParams?: Promise<{ fr
      numberOfDays = Math.max(1, Math.floor((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1)
   }
   
-  let numberOfFridays = 0
-  let currentDate = new Date(startDate)
-  currentDate.setUTCHours(0,0,0,0)
-  const endLimit = new Date(endDate)
-  endLimit.setUTCHours(23,59,59,999)
-  
-  while (currentDate <= endLimit) {
-    if (currentDate.getUTCDay() === 5) {
-      numberOfFridays++
+  const countFridaysBetween = (s: Date, e: Date) => {
+    let count = 0
+    let curr = new Date(s)
+    curr.setUTCHours(0, 0, 0, 0)
+    const limit = new Date(e)
+    limit.setUTCHours(23, 59, 59, 999)
+    while (curr <= limit) {
+      if (curr.getUTCDay() === 5) count++
+      curr.setUTCDate(curr.getUTCDate() + 1)
     }
-    currentDate.setUTCDate(currentDate.getUTCDate() + 1)
+    return count
   }
 
   const eligibleSales = sales.filter(s => eligibleReps.includes(s.sales_rep))
   const eligibleGrossSales = eligibleSales.reduce((sum, row) => sum + (Number(row.amount) || 0), 0)
-  const activeEligibleRepsCount = new Set(eligibleSales.map(s => s.sales_rep)).size
   
-  const totalDeduction = numberOfDays * 833 * activeEligibleRepsCount
+  let totalDeduction = 0
+  const activeEligibleRepNames = Array.from(new Set(eligibleSales.map(s => s.sales_rep)))
+  activeEligibleRepNames.forEach(repName => {
+    const rep = salesReps?.find(r => r.name === repName)
+    let effStart = new Date(startDate)
+    if (rep?.start_date) {
+      const repStart = new Date(rep.start_date)
+      if (repStart > effStart) effStart = repStart
+    }
+    if (effStart <= endDate) {
+      const activeDays = Math.max(1, Math.floor((endDate.getTime() - effStart.getTime()) / (1000 * 60 * 60 * 24)) + 1)
+      totalDeduction += activeDays * 833
+    }
+  })
   const commissionPaid = Math.max(0, eligibleGrossSales - totalDeduction) * commissionRate
   
-  const totalSalaryCost = totalWeeklySalary * numberOfFridays
+  let totalSalaryCost = 0
+  salesReps?.forEach(rep => {
+    if (!rep.weekly_salary) return
+    let effStart = new Date(startDate)
+    if (rep.start_date) {
+      const repStart = new Date(rep.start_date)
+      if (repStart > effStart) effStart = repStart
+    }
+    if (effStart <= endDate) {
+      const fridays = countFridaysBetween(effStart, endDate)
+      totalSalaryCost += Number(rep.weekly_salary) * fridays
+    }
+  })
   const adSpendTotal = metrics.reduce((sum, row) => sum + (Number(row.ad_spend) || 0), 0)
   const trueNetProfit = netSales - commissionPaid - totalSalaryCost - adSpendTotal
   

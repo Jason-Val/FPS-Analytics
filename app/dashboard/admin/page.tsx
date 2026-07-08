@@ -16,6 +16,7 @@ interface SalesRep {
   name: string
   is_eligible: boolean
   weekly_salary: number
+  start_date?: string | null
 }
 
 export default function AdminPage() {
@@ -27,6 +28,7 @@ export default function AdminPage() {
   
   const [reps, setReps] = useState<SalesRep[]>([])
   const [newRepName, setNewRepName] = useState('')
+  const [newRepStartDate, setNewRepStartDate] = useState('')
   const [isAddingRep, setIsAddingRep] = useState(false)
 
   const [constants, setConstants] = useState({
@@ -67,13 +69,25 @@ export default function AdminPage() {
     fetchReps()
   }
 
+  async function updateRepStartDate(id: string, startDate: string | null) {
+    const supabase = createClient()
+    await supabase.from('sales_reps').update({ start_date: startDate || null }).eq('id', id)
+    fetchReps()
+  }
+
   async function handleAddRep(e: React.FormEvent) {
     e.preventDefault()
     if (!newRepName.trim()) return
     setIsAddingRep(true)
     const supabase = createClient()
-    await supabase.from('sales_reps').insert([{ name: newRepName.trim(), is_eligible: true, weekly_salary: 1000 }])
+    await supabase.from('sales_reps').insert([{
+      name: newRepName.trim(),
+      is_eligible: true,
+      weekly_salary: 1000,
+      start_date: newRepStartDate || null
+    }])
     setNewRepName('')
+    setNewRepStartDate('')
     setIsAddingRep(false)
     fetchReps()
   }
@@ -258,12 +272,19 @@ export default function AdminPage() {
               <h2 className="text-lg font-medium text-on-surface">Sales Representatives</h2>
               <p className="text-xs text-on-surface-variant ml-4 uppercase tracking-wider font-bold">Commission Eligibility</p>
             </div>
-            <form onSubmit={handleAddRep} className="flex items-center gap-2 w-full sm:w-auto">
+            <form onSubmit={handleAddRep} className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
               <input
                 type="text"
                 placeholder="New Rep Name..."
                 value={newRepName}
                 onChange={(e) => setNewRepName(e.target.value)}
+                className="bg-surface-container-low text-on-surface rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary/50 border border-outline-variant/20"
+              />
+              <input
+                type="date"
+                title="Start Date (Optional)"
+                value={newRepStartDate}
+                onChange={(e) => setNewRepStartDate(e.target.value)}
                 className="bg-surface-container-low text-on-surface rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary/50 border border-outline-variant/20"
               />
               <button
@@ -318,6 +339,27 @@ export default function AdminPage() {
                    >
                      Save
                    </button>
+                </div>
+                <div className="flex items-center gap-2 mt-1">
+                  <label className="text-[10px] text-on-surface-variant uppercase tracking-wider font-bold whitespace-nowrap">Start Date</label>
+                  <div className="relative flex-1">
+                    <Calendar size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-on-surface-variant" />
+                    <input
+                      type="date"
+                      id={`startdate-input-${rep.id}`}
+                      defaultValue={rep.start_date || ''}
+                      className="w-full bg-background text-on-surface rounded-md pl-6 pr-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary/50 transition-all ghost-border"
+                    />
+                  </div>
+                  <button
+                    onClick={() => {
+                      const input = document.getElementById(`startdate-input-${rep.id}`) as HTMLInputElement
+                      if (input) updateRepStartDate(rep.id, input.value || null)
+                    }}
+                    className="px-3 py-1.5 text-[10px] uppercase font-bold tracking-wider rounded bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 transition-colors"
+                  >
+                    Save
+                  </button>
                 </div>
               </div>
             ))}
