@@ -42,9 +42,71 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   return null
 }
 
+const aggregateRepData = (
+  data: any[],
+  reps: string[],
+  granularity: 'day' | 'week' | 'month'
+) => {
+  if (!data || data.length === 0) return []
+  const map: Record<string, any> = {}
+
+  data.forEach((item) => {
+    const rawDateStr = item.rawDate || item.date || item.name
+    let dateObj = new Date(rawDateStr)
+    if (isNaN(dateObj.getTime())) {
+      dateObj = new Date(`${rawDateStr} ${new Date().getFullYear()}`)
+    }
+    if (isNaN(dateObj.getTime())) return
+
+    let key = ''
+    let label = ''
+
+    if (granularity === 'day') {
+      key = dateObj.toISOString().split('T')[0]
+      label = dateObj.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        timeZone: 'UTC',
+      })
+    } else if (granularity === 'week') {
+      const d = new Date(dateObj)
+      const day = d.getUTCDay()
+      d.setUTCDate(d.getUTCDate() - day)
+      key = d.toISOString().split('T')[0]
+      label = `Wk ${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })}`
+    } else if (granularity === 'month') {
+      key = dateObj.toISOString().slice(0, 7)
+      label = dateObj.toLocaleDateString('en-US', {
+        month: 'short',
+        year: 'numeric',
+        timeZone: 'UTC',
+      })
+    }
+
+    if (!map[key]) {
+      map[key] = {
+        key,
+        name: label,
+      }
+      reps.forEach((r) => {
+        map[key][r] = 0
+      })
+    }
+
+    reps.forEach((r) => {
+      map[key][r] = (map[key][r] || 0) + (Number(item[r]) || 0)
+    })
+  })
+
+  const res = Object.keys(map)
+    .sort((a, b) => a.localeCompare(b))
+    .map((k) => map[k])
+
+  return res.length > 0 ? res : data
+}
+
 export default function RepPerformanceChart({ data, reps }: RepPerformanceChartProps) {
-  // Initialize visibility: if a rep is selected (only 1 rep data exists in 'reps' would be a special case but here 'reps' is all unique reps found)
-  // Actually, we'll just show all by default
+  const [granularity, setGranularity] = useState<'day' | 'week' | 'month'>('day')
   const [visibleReps, setVisibleReps] = useState<Record<string, boolean>>(
     reps.reduce((acc, rep) => ({ ...acc, [rep]: true }), {})
   )
@@ -56,6 +118,8 @@ export default function RepPerformanceChart({ data, reps }: RepPerformanceChartP
     }))
   }
 
+  const chartData = aggregateRepData(data, reps, granularity)
+
   return (
     <div className="bg-surface-container rounded-xl p-8 relative overflow-hidden group hover:bg-surface-container-high transition-colors col-span-1 lg:col-span-3">
        <div className="relative z-10 flex flex-col sm:flex-row sm:justify-between sm:items-start gap-6">
@@ -64,35 +128,49 @@ export default function RepPerformanceChart({ data, reps }: RepPerformanceChartP
            <p className="text-on-surface-variant text-sm mt-2 max-w-none md:max-w-sm">Comparing individual gross sales volume across the selected timeframe.</p>
          </div>
          
-         {/* Interactive Legend Key */}
-         <div className="flex flex-wrap gap-2">
-            {reps.map((rep, idx) => {
-               const isActive = visibleReps[rep]
-               const color = REP_COLORS[idx % REP_COLORS.length]
-               return (
-                 <button 
-                   key={rep}
-                   onClick={() => toggleRep(rep)}
-                   className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold transition-all border ${
-                      isActive 
-                        ? 'bg-surface-container-highest border-transparent text-on-surface shadow-sm' 
-                        : 'bg-transparent border-outline-variant/30 text-on-surface-variant hover:text-on-surface hover:border-outline-variant'
-                   }`}
-                 >
-                   <div 
-                     className={`w-2 h-2 rounded-full ${isActive ? 'scale-100' : 'scale-75 opacity-50'}`} 
-                     style={{ backgroundColor: color, boxShadow: isActive ? `0 0 8px ${color}` : 'none' }}
-                   />
-                   {rep}
-                 </button>
-               )
-            })}
+         <div className="flex flex-col items-end gap-3">
+           {/* Granularity Toggle Dropdown */}
+           <select
+             value={granularity}
+             onChange={(e) => setGranularity(e.target.value as any)}
+             aria-label="Select Graph Time Granularity"
+             className="bg-surface-container-low text-on-surface text-xs font-bold px-3 py-1.5 rounded-lg border border-outline-variant/30 focus:outline-none focus:ring-1 focus:ring-primary/50 cursor-pointer shadow-sm"
+           >
+             <option value="day">Daily View</option>
+             <option value="week">Weekly View</option>
+             <option value="month">Monthly View</option>
+           </select>
+
+           {/* Interactive Legend Key */}
+           <div className="flex flex-wrap gap-2">
+              {reps.map((rep, idx) => {
+                 const isActive = visibleReps[rep]
+                 const color = REP_COLORS[idx % REP_COLORS.length]
+                 return (
+                   <button 
+                     key={rep}
+                     onClick={() => toggleRep(rep)}
+                     className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold transition-all border ${
+                        isActive 
+                          ? 'bg-surface-container-highest border-transparent text-on-surface shadow-sm' 
+                          : 'bg-transparent border-outline-variant/30 text-on-surface-variant hover:text-on-surface hover:border-outline-variant'
+                     }`}
+                   >
+                     <div 
+                       className={`w-2 h-2 rounded-full ${isActive ? 'scale-100' : 'scale-75 opacity-50'}`} 
+                       style={{ backgroundColor: color, boxShadow: isActive ? `0 0 8px ${color}` : 'none' }}
+                     />
+                     {rep}
+                   </button>
+                 )
+              })}
+           </div>
          </div>
        </div>
 
        <div className="h-80 mt-12 cursor-crosshair">
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={data} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
+            <AreaChart data={chartData} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
               <defs>
                 {reps.map((rep, idx) => {
                   const color = REP_COLORS[idx % REP_COLORS.length]

@@ -54,7 +54,74 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   return null
 }
 
+const aggregateMetricsData = (
+  data: any[],
+  granularity: 'day' | 'week' | 'month'
+) => {
+  if (!data || data.length === 0) return []
+  const map: Record<string, any> = {}
+
+  data.forEach((item) => {
+    const rawDateStr = item.rawDate || item.date || item.name
+    let dateObj = new Date(rawDateStr)
+    if (isNaN(dateObj.getTime())) {
+      dateObj = new Date(`${rawDateStr} ${new Date().getFullYear()}`)
+    }
+    if (isNaN(dateObj.getTime())) return
+
+    let key = ''
+    let label = ''
+
+    if (granularity === 'day') {
+      key = dateObj.toISOString().split('T')[0]
+      label = dateObj.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        timeZone: 'UTC',
+      })
+    } else if (granularity === 'week') {
+      const d = new Date(dateObj)
+      const day = d.getUTCDay()
+      d.setUTCDate(d.getUTCDate() - day)
+      key = d.toISOString().split('T')[0]
+      label = `Wk ${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })}`
+    } else if (granularity === 'month') {
+      key = dateObj.toISOString().slice(0, 7)
+      label = dateObj.toLocaleDateString('en-US', {
+        month: 'short',
+        year: 'numeric',
+        timeZone: 'UTC',
+      })
+    }
+
+    if (!map[key]) {
+      map[key] = {
+        key,
+        name: label,
+        grossSales: 0,
+        adSpend: 0,
+        ppcClicks: 0,
+        organicVisits: 0,
+        incomingCalls: 0,
+      }
+    }
+
+    map[key].grossSales += Number(item.grossSales) || 0
+    map[key].adSpend += Number(item.adSpend) || 0
+    map[key].ppcClicks += Number(item.ppcClicks) || 0
+    map[key].organicVisits += Number(item.organicVisits) || 0
+    map[key].incomingCalls += Number(item.incomingCalls) || 0
+  })
+
+  const res = Object.keys(map)
+    .sort((a, b) => a.localeCompare(b))
+    .map((k) => map[k])
+
+  return res.length > 0 ? res : data
+}
+
 export default function MetricsChart({ data }: MetricsChartProps) {
+  const [granularity, setGranularity] = useState<'day' | 'week' | 'month'>('day')
   const [visibleMetrics, setVisibleMetrics] = useState<Record<string, boolean>>({
     grossSales: true,
     adSpend: false,
@@ -72,6 +139,7 @@ export default function MetricsChart({ data }: MetricsChartProps) {
 
   // Ensure Right Y Axis only renders scaling if at least one right-axis metric is visible
   const showRightAxis = visibleMetrics.adSpend || visibleMetrics.ppcClicks || visibleMetrics.organicVisits || visibleMetrics.incomingCalls
+  const chartData = aggregateMetricsData(data, granularity)
 
   return (
     <div className="bg-surface-container rounded-xl p-8 relative overflow-hidden group hover:bg-surface-container-high transition-colors col-span-1 lg:col-span-2">
@@ -81,34 +149,48 @@ export default function MetricsChart({ data }: MetricsChartProps) {
            <p className="text-on-surface-variant text-sm mt-2 max-w-none md:max-w-sm">Aggregated comparison of financial volume against specific marketing channels.</p>
          </div>
          
-         {/* Interactive Legend Key */}
-         <div className="flex flex-wrap gap-2">
-            {METRICS_CONFIG.map(metric => {
-               const isActive = visibleMetrics[metric.key]
-               return (
-                 <button 
-                   key={metric.key}
-                   onClick={() => toggleMetric(metric.key)}
-                   className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold transition-all border ${
-                      isActive 
-                        ? 'bg-surface-container-highest border-transparent text-on-surface shadow-sm' 
-                        : 'bg-transparent border-outline-variant/30 text-on-surface-variant hover:text-on-surface hover:border-outline-variant'
-                   }`}
-                 >
-                   <div 
-                     className={`w-2 h-2 rounded-full ${isActive ? 'scale-100' : 'scale-75 opacity-50'}`} 
-                     style={{ backgroundColor: metric.color, boxShadow: isActive ? `0 0 8px ${metric.color}` : 'none' }}
-                   />
-                   {metric.label}
-                 </button>
-               )
-            })}
+         <div className="flex flex-col items-end gap-3">
+           {/* Granularity Toggle Dropdown */}
+           <select
+             value={granularity}
+             onChange={(e) => setGranularity(e.target.value as any)}
+             aria-label="Select Graph Time Granularity"
+             className="bg-surface-container-low text-on-surface text-xs font-bold px-3 py-1.5 rounded-lg border border-outline-variant/30 focus:outline-none focus:ring-1 focus:ring-primary/50 cursor-pointer shadow-sm"
+           >
+             <option value="day">Daily View</option>
+             <option value="week">Weekly View</option>
+             <option value="month">Monthly View</option>
+           </select>
+
+           {/* Interactive Legend Key */}
+           <div className="flex flex-wrap gap-2">
+             {METRICS_CONFIG.map(metric => {
+                const isActive = visibleMetrics[metric.key]
+                return (
+                  <button 
+                    key={metric.key}
+                    onClick={() => toggleMetric(metric.key)}
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold transition-all border ${
+                       isActive 
+                         ? 'bg-surface-container-highest border-transparent text-on-surface shadow-sm' 
+                         : 'bg-transparent border-outline-variant/30 text-on-surface-variant hover:text-on-surface hover:border-outline-variant'
+                    }`}
+                  >
+                    <div 
+                      className={`w-2 h-2 rounded-full ${isActive ? 'scale-100' : 'scale-75 opacity-50'}`} 
+                      style={{ backgroundColor: metric.color, boxShadow: isActive ? `0 0 8px ${metric.color}` : 'none' }}
+                    />
+                    {metric.label}
+                  </button>
+                )
+             })}
+           </div>
          </div>
        </div>
 
        <div className="h-80 mt-12 cursor-crosshair">
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={data} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
+            <AreaChart data={chartData} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
               <defs>
                 {METRICS_CONFIG.map(metric => (
                   <linearGradient key={metric.key} id={`color_${metric.key}`} x1="0" y1="0" x2="0" y2="1">

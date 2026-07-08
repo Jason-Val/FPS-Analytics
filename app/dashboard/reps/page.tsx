@@ -181,21 +181,20 @@ export default async function SalesRepsPage(props: { searchParams?: Promise<{ fr
   
   filteredSales.forEach(row => {
     if (!row.date || !row.sales_rep) return
-    const dateStr = new Date(row.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })
+    const rawDate = row.date.split('T')[0]
     
-    if (!chartDataMap[dateStr]) {
-       chartDataMap[dateStr] = {
-         name: dateStr,
+    if (!chartDataMap[rawDate]) {
+       chartDataMap[rawDate] = {
+         rawDate,
+         name: rawDate,
        }
-       // Initialize all reps to 0 for this date
-       uniqueReps.forEach(r => chartDataMap[dateStr][r] = 0)
+       uniqueReps.forEach(r => chartDataMap[rawDate][r] = 0)
     }
     
-    chartDataMap[dateStr][row.sales_rep] += Number(row.amount) || 0
+    chartDataMap[rawDate][row.sales_rep] += Number(row.amount) || 0
   })
 
-  // Sort chronological (Assuming year 2024 for sorting logic as in dashboard)
-  const sortedDates = Object.keys(chartDataMap).sort((a, b) => new Date(`${a} 2024`).getTime() - new Date(`${b} 2024`).getTime())
+  const sortedDates = Object.keys(chartDataMap).sort((a, b) => a.localeCompare(b))
   let chartDataArray = sortedDates.map(dateKey => chartDataMap[dateKey])
 
   if (chartDataArray.length === 0) {

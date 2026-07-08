@@ -118,10 +118,11 @@ export default async function DashboardPage(props: { searchParams?: Promise<{ fr
   // 4. Format Date Series for MetricsChart (All Metrics mapped onto single timescale)
   const chartDataMap: Record<string, any> = {}
   
-  const initDate = (dateStr: string) => {
-    if (!chartDataMap[dateStr]) {
-       chartDataMap[dateStr] = {
-         name: dateStr,
+  const initDate = (rawDate: string) => {
+    if (!chartDataMap[rawDate]) {
+       chartDataMap[rawDate] = {
+         rawDate,
+         name: rawDate,
          grossSales: 0,
          adSpend: 0,
          ppcClicks: 0,
@@ -133,23 +134,23 @@ export default async function DashboardPage(props: { searchParams?: Promise<{ fr
 
   sales.forEach(row => {
     if (!row.date) return
-    const dateStr = new Date(row.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })
-    initDate(dateStr)
-    chartDataMap[dateStr].grossSales += Number(row.amount) || 0
+    const rawDate = row.date.split('T')[0]
+    initDate(rawDate)
+    chartDataMap[rawDate].grossSales += Number(row.amount) || 0
   })
 
   metrics.forEach(row => {
     if (!row.date) return
-    const dateStr = new Date(row.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })
-    initDate(dateStr)
-    chartDataMap[dateStr].adSpend += Number(row.ad_spend) || 0
-    chartDataMap[dateStr].ppcClicks += Number(row.google_ppc_clicks) || 0
-    chartDataMap[dateStr].organicVisits += Number(row.organic_visits) || 0
-    chartDataMap[dateStr].incomingCalls += Number(row.incoming_calls) || 0
+    const rawDate = row.date.split('T')[0]
+    initDate(rawDate)
+    chartDataMap[rawDate].adSpend += Number(row.ad_spend) || 0
+    chartDataMap[rawDate].ppcClicks += Number(row.google_ppc_clicks) || 0
+    chartDataMap[rawDate].organicVisits += Number(row.organic_visits) || 0
+    chartDataMap[rawDate].incomingCalls += Number(row.incoming_calls) || 0
   })
 
   // Sort chronological
-  const sortedDates = Object.keys(chartDataMap).sort((a, b) => new Date(`${a} 2024`).getTime() - new Date(`${b} 2024`).getTime())
+  const sortedDates = Object.keys(chartDataMap).sort((a, b) => a.localeCompare(b))
   
   let chartDataArray = sortedDates.map(dateKey => chartDataMap[dateKey])
 
