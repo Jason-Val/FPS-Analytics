@@ -13,8 +13,50 @@ interface DataUploadModalProps {
 type TableChoice = 'marketing_metrics' | 'sales'
 
 const TABLE_SCHEMAS = {
-  marketing_metrics: ['date', 'google_ppc_clicks', 'organic_visits', 'incoming_calls', 'ad_spend'],
+  marketing_metrics: ['date', 'conversions', 'incoming_calls', 'google_ppc_clicks', 'organic_visits', 'ad_spend'],
   sales: ['date', 'amount', 'cost_of_goods', 'net_sales', 'commission_paid', 'sales_rep', 'customer', 'channel']
+}
+
+const COLUMN_ALIASES: Record<string, string[]> = {
+  date: ['date', 'day', 'timestamp', 'time', 'transaction_date'],
+  conversions: ['conversions', 'conversion', 'conv', 'leads', 'total conversions', 'purchases'],
+  incoming_calls: ['incoming_calls', 'incoming calls', 'direct calls', 'direct phone calls', 'calls', 'phone calls', 'inbound calls'],
+  google_ppc_clicks: ['google_ppc_clicks', 'ppc clicks', 'ppc_clicks', 'clicks', 'google clicks', 'google ppc', 'ad clicks'],
+  organic_visits: ['organic_visits', 'organic visits', 'visits', 'organic', 'seo visits', 'sessions', 'website visits'],
+  ad_spend: ['ad_spend', 'ad spend', 'spend', 'advertising spend', 'cost', 'ad cost', 'google spend'],
+  amount: ['amount', 'gross sales', 'gross amount', 'total', 'sales amount', 'gross'],
+  net_sales: ['net_sales', 'net sales', 'net amount', 'net'],
+  cost_of_goods: ['cost_of_goods', 'cost of goods', 'cogs', 'cost'],
+  commission_paid: ['commission_paid', 'commission paid', 'commission'],
+  sales_rep: ['sales_rep', 'sales rep', 'rep', 'representative', 'agent'],
+  customer: ['customer', 'client', 'buyer', 'account'],
+  channel: ['channel', 'source', 'platform', 'medium'],
+}
+
+function normalizeDate(raw: any): string {
+  if (!raw) return ''
+  const str = String(raw).trim()
+  // YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str
+  // M/D/YYYY or MM/DD/YYYY
+  const slashParts = str.split('/')
+  if (slashParts.length === 3) {
+    let [m, d, y] = slashParts
+    if (y.length === 2) y = `20${y}`
+    return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`
+  }
+  // M-D-YYYY or MM-DD-YYYY
+  const dashParts = str.split('-')
+  if (dashParts.length === 3 && dashParts[0].length <= 2) {
+    let [m, d, y] = dashParts
+    if (y.length === 2) y = `20${y}`
+    return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`
+  }
+  const dateObj = new Date(str)
+  if (!isNaN(dateObj.getTime())) {
+    return dateObj.toISOString().split('T')[0]
+  }
+  return str
 }
 
 export default function DataUploadModal({ isOpen, onClose }: DataUploadModalProps) {
@@ -48,13 +90,17 @@ export default function DataUploadModal({ isOpen, onClose }: DataUploadModalProp
            setCsvHeaders(results.meta.fields)
            setCsvData(results.data)
            
-           // Auto-map where possible
+           // Auto-map using aliases
            const newMapping: Record<string, string> = {}
            const currentSchema = TABLE_SCHEMAS[targetTable]
            
            currentSchema.forEach(dbCol => {
-              const exactMatch = results.meta.fields!.find(h => h.toLowerCase() === dbCol.toLowerCase())
-              if (exactMatch) newMapping[dbCol] = exactMatch
+              const aliases = COLUMN_ALIASES[dbCol] || [dbCol]
+              const match = results.meta.fields!.find(h => {
+                 const cleanH = h.trim().toLowerCase().replace(/[\s_-]+/g, ' ')
+                 return aliases.some(alias => cleanH === alias.toLowerCase().replace(/[\s_-]+/g, ' '))
+              })
+              if (match) newMapping[dbCol] = match
            })
            
            setMapping(newMapping)
@@ -77,36 +123,62 @@ export default function DataUploadModal({ isOpen, onClose }: DataUploadModalProp
   const executeUpload = async () => {
      setStatus('uploading')
      
-     // Transform data based on mapping
-     const payload = csvData
-       .filter(row => Object.values(row).some(v => v !== '' && v !== null && v !== undefined)) // Filter trailing completely empty rows
-       .map(row => {
-         const newRow: any = {}
-         Object.entries(mapping).forEach(([dbCol, csvHeader]) => {
-            let val = row[csvHeader]
-            
-            // Critical Fix: Nullify any empty strings to prevent postgres strict numeric typing rejection
-            if (val === undefined || val === null || String(val).trim() === '') {
-               newRow[dbCol] = null
-               return
-            }
-            
-            // Basic type casting for numerical values
-            if (!isNaN(Number(val)) && dbCol !== 'date' && dbCol !== 'customer' && dbCol !== 'sales_rep' && dbCol !== 'channel') {
-              val = Number(val)
-            }
-            newRow[dbCol] = val
+     try {
+       // Transform data based on mapping
+       const payload = csvData
+         .filter(row => Object.values(row).some(v => v !== '' && v !== null && v !== undefined)) // Filter trailing completely empty rows
+         .map(row => {
+           const newRow: any = {}
+           Object.entries(mapping).forEach(([dbCol, csvHeader]) => {
+              if (!csvHeader) return
+              const rawVal = row[csvHeader]
+              
+              // If blank/empty in CSV:
+              // For marketing_metrics: omit key completely so existing data is untouched!
+              if (rawVal === undefined || rawVal === null || String(rawVal).trim() === '') {
+                 if (targetTable !== 'marketing_metrics') {
+                    newRow[dbCol] = null
+                 }
+                 return
+              }
+              
+              if (dbCol === 'date') {
+                newRow[dbCol] = normalizeDate(rawVal)
+                return
+              }
+              
+              // Basic type casting for numerical values
+              if (!isNaN(Number(rawVal)) && dbCol !== 'customer' && dbCol !== 'sales_rep' && dbCol !== 'channel') {
+                newRow[dbCol] = Number(rawVal)
+              } else {
+                newRow[dbCol] = rawVal
+              }
+           })
+           return newRow
          })
-         return newRow
-     })
+         .filter(row => row.date) // ensure date is present
 
-     const { error } = await supabase.from(targetTable).upsert(payload)
+       if (payload.length === 0) {
+         throw new Error('No valid data rows with dates were found to upload.')
+       }
 
-     if (error) {
-       setStatus('error')
-       setErrorMessage(error.message)
-     } else {
+       if (targetTable === 'marketing_metrics') {
+         // Batch into chunks to guarantee smooth database RPC execution
+         const chunkSize = 500
+         for (let i = 0; i < payload.length; i += chunkSize) {
+           const chunk = payload.slice(i, i + chunkSize)
+           const { error } = await supabase.rpc('upsert_marketing_metrics', { payload: chunk })
+           if (error) throw error
+         }
+       } else {
+         const { error } = await supabase.from(targetTable).upsert(payload)
+         if (error) throw error
+       }
+
        setStatus('success')
+     } catch (err: any) {
+       setStatus('error')
+       setErrorMessage(err.message || 'An unknown error occurred during upload.')
      }
   }
 
@@ -121,8 +193,12 @@ export default function DataUploadModal({ isOpen, onClose }: DataUploadModalProp
   }
 
   const closeAndReset = () => {
+    const wasSuccess = status === 'success'
     reset()
     onClose()
+    if (wasSuccess) {
+      window.location.reload()
+    }
   }
 
   return (
@@ -149,10 +225,10 @@ export default function DataUploadModal({ isOpen, onClose }: DataUploadModalProp
                   <select 
                     value={targetTable}
                     onChange={handleTableChange}
-                    className="w-full bg-surface-container-low text-on-surface rounded-md px-4 py-3 border border-outline-variant/20 focus:outline-none focus:border-primary"
+                    className="w-full bg-surface-container-low text-on-surface rounded-md px-4 py-3 border border-outline-variant/20 focus:outline-none focus:border-primary cursor-pointer"
                   >
-                    <option value="marketing_metrics">Marketing Metrics (Aggregated)</option>
-                    <option value="sales">Granular Sales (Transactions)</option>
+                    <option value="marketing_metrics">Marketing Metrics (Aggregated by Date)</option>
+                    <option value="sales">Granular Sales (Individual Transactions)</option>
                   </select>
                 </div>
 
@@ -188,20 +264,25 @@ export default function DataUploadModal({ isOpen, onClose }: DataUploadModalProp
                </div>
 
                <div>
-                 <h3 className="text-sm font-bold uppercase tracking-wider text-on-surface-variant mb-4">Map Columns to {targetTable}</h3>
+                 <h3 className="text-sm font-bold uppercase tracking-wider text-on-surface-variant mb-2">Map Columns to {targetTable === 'marketing_metrics' ? 'Marketing Metrics' : 'Sales'}</h3>
+                 {targetTable === 'marketing_metrics' && (
+                   <p className="text-xs text-on-surface-variant mb-4">
+                     Existing entries for matching dates will only be updated with mapped, non-empty columns. All other existing fields remain untouched.
+                   </p>
+                 )}
                  <div className="space-y-3">
                    {TABLE_SCHEMAS[targetTable].map(dbCol => (
                      <div key={dbCol} className="flex items-center gap-4">
                         <div className="w-1/3 text-sm text-on-surface font-medium capitalize bg-surface-container-low px-3 py-2 rounded">
-                          {dbCol.replace('_', ' ')}
+                          {dbCol.replace(/_/g, ' ')}
                         </div>
                         <div className="text-on-surface-variant">&rarr;</div>
                         <select
-                          className="w-2/3 bg-surface-container-low text-on-surface rounded px-3 py-2 border border-outline-variant/20 text-sm"
+                          className="w-2/3 bg-surface-container-low text-on-surface rounded px-3 py-2 border border-outline-variant/20 text-sm cursor-pointer"
                           value={mapping[dbCol] || ''}
                           onChange={(e) => setMapping({...mapping, [dbCol]: e.target.value})}
                         >
-                          <option value="">-- Ignore / Leave Null --</option>
+                          <option value="">-- Ignore / Leave Untouched --</option>
                           {csvHeaders.map(h => (
                             <option key={h} value={h}>{h}</option>
                           ))}
@@ -216,15 +297,15 @@ export default function DataUploadModal({ isOpen, onClose }: DataUploadModalProp
            {status === 'uploading' && (
              <div className="py-12 flex flex-col items-center justify-center h-full space-y-4">
                 <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
-                <p className="text-on-surface font-medium">Injecting {csvData.length} records into database...</p>
+                <p className="text-on-surface font-medium">Synchronizing {csvData.length} records into database...</p>
              </div>
            )}
 
            {status === 'success' && (
              <div className="py-12 flex flex-col items-center justify-center text-center space-y-4">
                 <CheckCircle2 size={64} className="text-tertiary" />
-                <h3 className="text-2xl font-display font-medium text-on-surface">Upload Complete</h3>
-                <p className="text-on-surface-variant">Successfully synchronized {csvData.length} records.</p>
+                <h3 className="text-2xl font-display font-medium text-on-surface">Synchronization Complete</h3>
+                <p className="text-on-surface-variant">Successfully merged {csvData.length} records into {targetTable}.</p>
              </div>
            )}
 

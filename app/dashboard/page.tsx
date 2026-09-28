@@ -1,8 +1,9 @@
 import StatCard from '@/components/cards/StatCard'
-import MetricsChart from '@/components/charts/MetricsChart'
+import SalesChart from '@/components/charts/SalesChart'
+import MarketingAnalyticsChart from '@/components/charts/MarketingAnalyticsChart'
 import LiveIntelChat from '@/components/cards/LiveIntelChat'
 import DateRangeFilter from '@/components/filters/DateRangeFilter'
-import { DollarSign, MousePointerClick, Globe, PhoneCall, TrendingUp, Activity, CreditCard, Megaphone } from 'lucide-react'
+import { DollarSign, MousePointerClick, Globe, PhoneCall, TrendingUp, Activity, CreditCard, Megaphone, Target } from 'lucide-react'
 import { createClient } from '@/utils/supabase/server'
 
 export default async function DashboardPage(props: { searchParams?: Promise<{ from?: string, to?: string }> }) {
@@ -111,11 +112,12 @@ export default async function DashboardPage(props: { searchParams?: Promise<{ fr
   const adSpendTotal = metrics.reduce((sum, row) => sum + (Number(row.ad_spend) || 0), 0)
   const trueNetProfit = netSales - commissionPaid - totalSalaryCost - adSpendTotal
   
+  const conversions = metrics.reduce((sum, row) => sum + (Number(row.conversions) || 0), 0)
   const ppcClicks = metrics.reduce((sum, row) => sum + (Number(row.google_ppc_clicks) || 0), 0)
   const organicVisits = metrics.reduce((sum, row) => sum + (Number(row.organic_visits) || 0), 0)
   const incomingCalls = metrics.reduce((sum, row) => sum + (Number(row.incoming_calls) || 0), 0)
 
-  // 4. Format Date Series for MetricsChart (All Metrics mapped onto single timescale)
+  // 4. Format Date Series for Charts
   const chartDataMap: Record<string, any> = {}
   
   const initDate = (rawDate: string) => {
@@ -124,7 +126,10 @@ export default async function DashboardPage(props: { searchParams?: Promise<{ fr
          rawDate,
          name: rawDate,
          grossSales: 0,
+         netSales: 0,
+         grossSalesInThousands: 0,
          adSpend: 0,
+         conversions: 0,
          ppcClicks: 0,
          organicVisits: 0,
          incomingCalls: 0
@@ -137,6 +142,7 @@ export default async function DashboardPage(props: { searchParams?: Promise<{ fr
     const rawDate = row.date.split('T')[0]
     initDate(rawDate)
     chartDataMap[rawDate].grossSales += Number(row.amount) || 0
+    chartDataMap[rawDate].netSales += Number(row.net_sales) || 0
   })
 
   metrics.forEach(row => {
@@ -144,6 +150,7 @@ export default async function DashboardPage(props: { searchParams?: Promise<{ fr
     const rawDate = row.date.split('T')[0]
     initDate(rawDate)
     chartDataMap[rawDate].adSpend += Number(row.ad_spend) || 0
+    chartDataMap[rawDate].conversions += Number(row.conversions) || 0
     chartDataMap[rawDate].ppcClicks += Number(row.google_ppc_clicks) || 0
     chartDataMap[rawDate].organicVisits += Number(row.organic_visits) || 0
     chartDataMap[rawDate].incomingCalls += Number(row.incoming_calls) || 0
@@ -152,12 +159,16 @@ export default async function DashboardPage(props: { searchParams?: Promise<{ fr
   // Sort chronological
   const sortedDates = Object.keys(chartDataMap).sort((a, b) => a.localeCompare(b))
   
-  let chartDataArray = sortedDates.map(dateKey => chartDataMap[dateKey])
+  let chartDataArray = sortedDates.map(dateKey => {
+    const item = chartDataMap[dateKey]
+    item.grossSalesInThousands = Number((item.grossSales / 1000).toFixed(2))
+    return item
+  })
 
   if (chartDataArray.length === 0) {
      chartDataArray = [
-        { name: 'No Data', grossSales: 0, adSpend: 0, ppcClicks: 0, organicVisits: 0, incomingCalls: 0 },
-        { name: 'Upload Data', grossSales: 0, adSpend: 0, ppcClicks: 0, organicVisits: 0, incomingCalls: 0 }
+        { name: 'No Data', grossSales: 0, netSales: 0, grossSalesInThousands: 0, adSpend: 0, conversions: 0, ppcClicks: 0, organicVisits: 0, incomingCalls: 0 },
+        { name: 'Upload Data', grossSales: 0, netSales: 0, grossSalesInThousands: 0, adSpend: 0, conversions: 0, ppcClicks: 0, organicVisits: 0, incomingCalls: 0 }
      ]
   }
 
@@ -166,112 +177,141 @@ export default async function DashboardPage(props: { searchParams?: Promise<{ fr
   const formatNumber = (val: number) => new Intl.NumberFormat('en-US').format(val)
 
   return (
-    <div className="max-w-7xl mx-auto space-y-10">
-       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8">
+    <div className="max-w-7xl mx-auto space-y-12">
+       {/* Top Header */}
+       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
          <div>
            <h1 className="text-4xl font-display font-medium text-on-surface mb-2">Performance Dashboard</h1>
            <p className="text-on-surface-variant flex items-center gap-2">
-              Synthesizing real-time advertising and sales metrics.
+              Synthesizing real-time advertising, sales metrics, and acquisition analytics.
            </p>
          </div>
          <DateRangeFilter />
        </div>
        
-       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <MetricsChart data={chartDataArray} />
-          
-          <div className="bg-surface-container rounded-xl p-8 cursor-default flex flex-col justify-between hover:bg-surface-container-high transition-colors">
-            <div>
-              <div className="flex justify-between items-start">
-                 <span className="bg-tertiary/20 text-tertiary text-[10px] font-bold tracking-widest uppercase px-2 py-1 rounded">Live Intel</span>
-                 {from && to && (
-                     <span className="text-xs text-on-surface-variant font-medium bg-surface-container-low px-2 py-1 rounded border border-outline-variant/30">
-                        Filtered: {new Date(from).toLocaleDateString()} - {new Date(to).toLocaleDateString()}
-                     </span>
-                 )}
-              </div>
-              <h3 className="text-xl font-display font-medium text-on-surface mt-4 mb-3 leading-snug">
-                {sales.length > 0 ? `Tracking ${formatNumber(sales.length)} distinct sales transactions.` : 'No transactions exist in this period.'}
-              </h3>
-            </div>
+       {/* Section 1: Sales & Revenue */}
+       <section className="space-y-6">
+         <div className="border-b border-outline-variant/30 pb-3">
+           <h2 className="text-2xl font-display font-medium text-on-surface">Sales & Revenue</h2>
+           <p className="text-sm text-on-surface-variant">Transaction velocity, net profit realization, and direct customer demand.</p>
+         </div>
+
+         {/* Sales Graph & Live Intel */}
+         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <SalesChart data={chartDataArray} />
             
-            <div className="mt-4 flex-1">
-               <LiveIntelChat />
+            <div className="bg-surface-container rounded-xl p-8 cursor-default flex flex-col justify-between hover:bg-surface-container-high transition-colors">
+              <div>
+                <div className="flex justify-between items-start">
+                   <span className="bg-tertiary/20 text-tertiary text-[10px] font-bold tracking-widest uppercase px-2 py-1 rounded">Live Intel</span>
+                   {from && to && (
+                       <span className="text-xs text-on-surface-variant font-medium bg-surface-container-low px-2 py-1 rounded border border-outline-variant/30">
+                          Filtered: {new Date(from).toLocaleDateString()} - {new Date(to).toLocaleDateString()}
+                       </span>
+                   )}
+                </div>
+                <h3 className="text-xl font-display font-medium text-on-surface mt-4 mb-3 leading-snug">
+                  {sales.length > 0 ? `Tracking ${formatNumber(sales.length)} distinct sales transactions.` : 'No transactions exist in this period.'}
+                </h3>
+              </div>
+              
+              <div className="mt-4 flex-1">
+                 <LiveIntelChat />
+              </div>
             </div>
-          </div>
-       </div>
-
-        <div>
-         <h3 className="text-xl font-display font-medium text-on-surface mb-4">Financial Overview</h3>
-         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-           <StatCard 
-             title="Gross Sales" 
-             value={formatCurrency(grossSales)} 
-             trendAmount="-- " 
-             icon={<DollarSign size={20} />} 
-           />
-           <StatCard 
-             title="Cost Of Goods" 
-             value={formatCurrency(costOfGoods)} 
-             trendAmount="-- " 
-             icon={<Activity size={20} />} 
-           />
-           <StatCard 
-             title="Net Sales" 
-             value={formatCurrency(netSales)} 
-             trendAmount="-- " 
-             icon={<TrendingUp size={20} />} 
-           />
-           <StatCard 
-             title="Commission Paid" 
-             value={formatCurrency(commissionPaid)} 
-             trendAmount="-- " 
-             icon={<CreditCard size={20} />} 
-           />
-           <StatCard 
-             title="Salary Cost" 
-             value={formatCurrency(totalSalaryCost)} 
-             trendAmount="-- " 
-             icon={<DollarSign size={20} />} 
-           />
-           <StatCard 
-             title="True Net Profit" 
-             value={formatCurrency(trueNetProfit)} 
-             trendAmount="-- " 
-             icon={<TrendingUp size={20} />} 
-           />
          </div>
-       </div>
 
-       <div>
-         <h3 className="text-xl font-display font-medium text-on-surface mb-4 mt-8">Marketing Performance</h3>
-         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-           <StatCard 
-             title="Ad Spend" 
-             value={formatCurrency(adSpendTotal)} 
-             trendAmount="-- " 
-             icon={<Megaphone size={20} />} 
-           />
-           <StatCard 
-             title="PPC Clicks" 
-             value={formatNumber(ppcClicks)} 
-             trendAmount="-- " 
-             icon={<MousePointerClick size={20} />} 
-           />
-           <StatCard 
-             title="Organic Visits" 
-             value={formatNumber(organicVisits)} 
-             trendAmount="-- " 
-             icon={<Globe size={20} />} 
-           />
-           <StatCard 
-             title="Direct Calls" 
-             value={formatNumber(incomingCalls)} 
-             trendAmount="-- " 
-             icon={<PhoneCall size={20} />} 
-           />
+         {/* Financial Overview StatCards */}
+         <div>
+           <h3 className="text-lg font-display font-medium text-on-surface mb-3">Financial Overview</h3>
+           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+             <StatCard 
+               title="Gross Sales" 
+               value={formatCurrency(grossSales)} 
+               trendAmount="-- " 
+               icon={<DollarSign size={20} />} 
+             />
+             <StatCard 
+               title="Cost Of Goods" 
+               value={formatCurrency(costOfGoods)} 
+               trendAmount="-- " 
+               icon={<Activity size={20} />} 
+             />
+             <StatCard 
+               title="Net Sales" 
+               value={formatCurrency(netSales)} 
+               trendAmount="-- " 
+               icon={<TrendingUp size={20} />} 
+             />
+             <StatCard 
+               title="Commission Paid" 
+               value={formatCurrency(commissionPaid)} 
+               trendAmount="-- " 
+               icon={<CreditCard size={20} />} 
+             />
+             <StatCard 
+               title="Salary Cost" 
+               value={formatCurrency(totalSalaryCost)} 
+               trendAmount="-- " 
+               icon={<DollarSign size={20} />} 
+             />
+             <StatCard 
+               title="True Net Profit" 
+               value={formatCurrency(trueNetProfit)} 
+               trendAmount="-- " 
+               icon={<TrendingUp size={20} />} 
+             />
+           </div>
          </div>
-       </div>
+       </section>
+
+       {/* Section 2: Marketing & Acquisition Analytics */}
+       <section className="space-y-6 pt-4">
+         <div className="border-b border-outline-variant/30 pb-3">
+           <h2 className="text-2xl font-display font-medium text-on-surface">Marketing & Acquisition Analytics</h2>
+           <p className="text-sm text-on-surface-variant">Attribution metrics, inbound phone call volume, and advertising efficiency vs gross sales.</p>
+         </div>
+
+         {/* Marketing Performance StatCards */}
+         <div>
+           <h3 className="text-lg font-display font-medium text-on-surface mb-3">Acquisition Highlights</h3>
+           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
+             <StatCard 
+               title="Ad Spend" 
+               value={formatCurrency(adSpendTotal)} 
+               trendAmount="-- " 
+               icon={<Megaphone size={20} />} 
+             />
+             <StatCard 
+               title="Conversions" 
+               value={formatNumber(conversions)} 
+               trendAmount="-- " 
+               icon={<Target size={20} />} 
+             />
+             <StatCard 
+               title="PPC Clicks" 
+               value={formatNumber(ppcClicks)} 
+               trendAmount="-- " 
+               icon={<MousePointerClick size={20} />} 
+             />
+             <StatCard 
+               title="Organic Visits" 
+               value={formatNumber(organicVisits)} 
+               trendAmount="-- " 
+               icon={<Globe size={20} />} 
+             />
+             <StatCard 
+               title="Direct Calls" 
+               value={formatNumber(incomingCalls)} 
+               trendAmount="-- " 
+               icon={<PhoneCall size={20} />} 
+             />
+           </div>
+         </div>
+
+         {/* Granular Marketing Metrics & Gross Sales in Thousands Graph */}
+         <MarketingAnalyticsChart data={chartDataArray} />
+       </section>
     </div>
   )
 }

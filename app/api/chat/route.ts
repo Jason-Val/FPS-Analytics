@@ -70,6 +70,7 @@ export async function POST(req: Request) {
          - organic_visits (integer)
          - incoming_calls (integer)
          - ad_spend (numeric): total ad spend in dollars for that day
+         - conversions (numeric): total conversions recorded for that day
 
       ⚠️  CRITICAL QUERY RULE — READ CAREFULLY:
       The two tables have different cardinalities. "sales" has MULTIPLE rows per date;
